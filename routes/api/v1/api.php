@@ -1,7 +1,8 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AccountController;
 use App\Http\Controllers\Api\V1\AuthController;
-use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\V1\CategoryController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -28,6 +29,19 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('{category}/restore', [CategoryController::class, 'restore']);
         Route::post('{category}/toggle-status', [CategoryController::class, 'toggleStatus']);
     });
+
+    Route::apiResource('accounts', AccountController::class);
+    
+    // Additional account routes
+    Route::post('accounts/{account}/restore', [AccountController::class, 'restore'])
+        ->name('accounts.restore')
+        ->withTrashed();
+    
+    Route::patch('accounts/{account}/toggle-status', [AccountController::class, 'toggleStatus'])
+        ->name('accounts.toggle-status');
+    
+    Route::get('accounts-stats', [AccountController::class, 'stats'])
+        ->name('accounts.stats');
 
     // Ruta de ejemplo (mantener por ahora)
     Route::get('/user', function (Request $request) {

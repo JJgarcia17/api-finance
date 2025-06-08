@@ -3,7 +3,7 @@
 namespace Tests\Unit\Requests;
 
 use Tests\TestCase;
-use App\Http\Requests\StoreCategoryRequest;
+use App\Http\Requests\Category\StoreCategoryRequest;
 use App\Models\User;
 use App\Models\Category;
 use Illuminate\Foundation\Testing\RefreshDatabase;
