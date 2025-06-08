@@ -38,15 +38,6 @@ trait HasAuthenticatedUser
             throw new AuthenticationException('Usuario no autenticado');
         }
         
-        Log::info('Acceso de usuario autenticado', [
-            'user_id' => $user->id,
-            'user_email' => $user->email,
-            'class' => static::class,
-            'method' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2)[1]['function'] ?? 'unknown',
-            'ip' => request()->ip(),
-            'timestamp' => now()->toISOString()
-        ]);
-        
         return $user->id;
     }
     
@@ -82,16 +73,7 @@ trait HasAuthenticatedUser
      */
     protected function isAuthenticated(): bool
     {
-        $isAuthenticated = auth('sanctum')->check();
-        
-        Log::debug('Verificación de autenticación', [
-            'authenticated' => $isAuthenticated,
-            'user_id' => $isAuthenticated ? auth('sanctum')->id() : null,
-            'class' => static::class,
-            'method' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2)[1]['function'] ?? 'unknown',
-            'ip' => request()->ip(),
-            'timestamp' => now()->toISOString()
-        ]);
+        $isAuthenticated = auth('sanctum')->check();    
         
         return $isAuthenticated;
     }

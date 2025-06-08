@@ -105,10 +105,10 @@ class Account extends Model
     /**
      * Get all transactions for this account
      */
-    // public function transactions(): HasMany
-    // {
-    //     return $this->hasMany(Transaction::class);
-    // }
+    public function transactions(): HasMany
+    {
+        return $this->hasMany(Transaction::class);
+    }
 
     /**
      * Get the type label
@@ -141,7 +141,7 @@ class Account extends Model
     public function resolveRouteBinding($value, $field = null)
     {
         return $this->where('id', $value)
-                   ->where('user_id', auth()->id())
+                   ->where('user_id', auth('sanctum')->id())
                    ->firstOrFail();
     }
 }
