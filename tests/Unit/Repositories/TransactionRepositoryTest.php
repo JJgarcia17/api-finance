@@ -27,7 +27,10 @@ class TransactionRepositoryTest extends TestCase
         parent::setUp();
         $this->repository = new TransactionRepository(new Transaction());
         $this->user = User::factory()->create();
-        $this->account = Account::factory()->create(['user_id' => $this->user->id]);
+        $this->account = Account::factory()->create([
+            'user_id' => $this->user->id,
+            'is_active' => true  // Asegurar que la cuenta esté activa
+        ]);
         $this->incomeCategory = Category::factory()->create([
             'user_id' => $this->user->id,
             'type' => 'income'
@@ -131,7 +134,10 @@ class TransactionRepositoryTest extends TestCase
     public function test_get_for_user_with_account_filter()
     {
         // Arrange
-        $otherAccount = Account::factory()->create(['user_id' => $this->user->id]);
+        $otherAccount = Account::factory()->create([
+            'user_id' => $this->user->id,
+            'is_active' => true  // Asegurar que la cuenta esté activa
+        ]);
         Transaction::factory()->create([
             'user_id' => $this->user->id,
             'account_id' => $this->account->id,

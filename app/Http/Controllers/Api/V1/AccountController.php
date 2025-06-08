@@ -34,8 +34,8 @@ class AccountController extends Controller
             $accounts = $this->accountService->getAccountsForUser(
                 userId: $this->userId(),
                 type: $request->get('type'),
-                isActive: $request->boolean('is_active'),
-                includeInTotal: $request->boolean('include_in_total'),
+                isActive: $request->has('is_active') ? $request->boolean('is_active') : null,
+                includeInTotal: $request->has('include_in_total') ? $request->boolean('include_in_total') : null,
                 sortBy: $request->get('sort_by', 'name'),
                 sortDirection: $request->get('sort_direction', 'asc'),
                 perPage: $request->get('per_page')
