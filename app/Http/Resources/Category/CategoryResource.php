@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Resources;
+namespace App\Http\Resources\Category;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -39,8 +39,8 @@ class CategoryResource extends JsonResource
             
             // Metadatos útiles
             'meta' => [
-                'can_edit' => $this->user_id === auth()->id(),
-                'can_delete' => $this->user_id === auth()->id(),
+                'can_edit' => $this->user_id === auth('sanctum')->id(),
+                'can_delete' => $this->user_id === auth('sanctum')->id(),
             ]
         ];
     }

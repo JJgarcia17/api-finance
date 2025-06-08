@@ -1,18 +1,19 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Category;
 
 use App\Models\Category;
-use App\Repositories\CategoryRepository;
-use Illuminate\Database\Eloquent\Collection;
+use App\Repositories\Category\CategoryRepository;
+use App\Traits\HasLogging;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Exception;
 
 class CategoryService
 {
+    use HasLogging;
+    
     protected CategoryRepository $repository;
 
     public function __construct(CategoryRepository $repository)
@@ -28,11 +29,10 @@ class CategoryService
         try {
             return $this->repository->getAllForUser($userId, $filters, $perPage);
         } catch (Exception $e) {
-            Log::error('Error getting categories for user', [
+            $this->logError('Error getting categories for user', [
                 'user_id' => $userId,
-                'filters' => $filters,
-                'error' => $e->getMessage()
-            ]);
+                'filters' => $filters
+            ], $e);
             throw $e;
         }
     }
@@ -45,14 +45,13 @@ class CategoryService
         try {
             return $this->repository->findForUser($id, $userId);
         } catch (ModelNotFoundException $e) {
-            Log::warning('Category not found', ['id' => $id, 'user_id' => $userId]);
+            $this->logError('Category not found', ['id' => $id, 'user_id' => $userId], $e);
             throw $e;
         } catch (Exception $e) {
-            Log::error('Error getting category', [
+            $this->logError('Error getting category', [
                 'id' => $id,
-                'user_id' => $userId,
-                'error' => $e->getMessage()
-            ]);
+                'user_id' => $userId
+            ], $e);
             throw $e;
         }
     }
@@ -76,20 +75,13 @@ class CategoryService
 
             DB::commit();
 
-            Log::info('Category created successfully', [
-                'category_id' => $category->id,
-                'user_id' => $userId,
-                'name' => $category->name
-            ]);
-
             return $category;
         } catch (Exception $e) {
             DB::rollBack();
-            Log::error('Error creating category', [
+            $this->logError('Error creating category', [
                 'data' => $data,
-                'user_id' => $userId,
-                'error' => $e->getMessage()
-            ]);
+                'user_id' => $userId
+            ], $e);
             throw $e;
         }
     }
@@ -111,21 +103,14 @@ class CategoryService
 
             DB::commit();
 
-            Log::info('Category updated successfully', [
-                'category_id' => $id,
-                'user_id' => $userId,
-                'changes' => $data
-            ]);
-
             return $updatedCategory;
         } catch (Exception $e) {
             DB::rollBack();
-            Log::error('Error updating category', [
+            $this->logError('Error updating category', [
                 'id' => $id,
                 'data' => $data,
-                'user_id' => $userId,
-                'error' => $e->getMessage()
-            ]);
+                'user_id' => $userId
+            ], $e);
             throw $e;
         }
     }
@@ -140,26 +125,17 @@ class CategoryService
         try {
             $category = $this->repository->findForUser($id, $userId);
 
-            // Business rule: Check if category is being used
-            // TODO: Add validation for related transactions when implemented
-
             $result = $this->repository->delete($category);
 
             DB::commit();
 
-            Log::info('Category deleted successfully', [
-                'category_id' => $id,
-                'user_id' => $userId
-            ]);
-
             return $result;
         } catch (Exception $e) {
             DB::rollBack();
-            Log::error('Error deleting category', [
+            $this->logError('Error deleting category', [
                 'id' => $id,
-                'user_id' => $userId,
-                'error' => $e->getMessage()
-            ]);
+                'user_id' => $userId
+            ], $e);
             throw $e;
         }
     }
@@ -176,19 +152,13 @@ class CategoryService
 
             DB::commit();
 
-            Log::info('Category restored successfully', [
-                'category_id' => $id,
-                'user_id' => $userId
-            ]);
-
             return $category;
         } catch (Exception $e) {
             DB::rollBack();
-            Log::error('Error restoring category', [
+            $this->logError('Error restoring category', [
                 'id' => $id,
-                'user_id' => $userId,
-                'error' => $e->getMessage()
-            ]);
+                'user_id' => $userId
+            ], $e);
             throw $e;
         }
     }
@@ -207,19 +177,13 @@ class CategoryService
 
             DB::commit();
 
-            Log::info('Category force deleted successfully', [
-                'category_id' => $id,
-                'user_id' => $userId
-            ]);
-
             return $result;
         } catch (Exception $e) {
             DB::rollBack();
-            Log::error('Error force deleting category', [
+            $this->logError('Error force deleting category', [
                 'id' => $id,
-                'user_id' => $userId,
-                'error' => $e->getMessage()
-            ]);
+                'user_id' => $userId
+            ], $e);
             throw $e;
         }
     }
@@ -237,20 +201,13 @@ class CategoryService
 
             DB::commit();
 
-            Log::info('Category status toggled successfully', [
-                'category_id' => $id,
-                'user_id' => $userId,
-                'new_status' => $updatedCategory->is_active
-            ]);
-
             return $updatedCategory;
         } catch (Exception $e) {
             DB::rollBack();
-            Log::error('Error toggling category status', [
+            $this->logError('Error toggling category status', [
                 'id' => $id,
-                'user_id' => $userId,
-                'error' => $e->getMessage()
-            ]);
+                'user_id' => $userId
+            ], $e);
             throw $e;
         }
     }
@@ -269,10 +226,9 @@ class CategoryService
                 'expense_categories' => $counts['expense']
             ];
         } catch (Exception $e) {
-            Log::error('Error getting category stats', [
-                'user_id' => $userId,
-                'error' => $e->getMessage()
-            ]);
+            $this->logError('Error getting category stats', [
+                'user_id' => $userId
+            ], $e);
             throw $e;
         }
     }
@@ -282,7 +238,7 @@ class CategoryService
      */
     private function validateCategoryData(array $data, ?int $excludeId = null): void
     {
-        // Validate required fields
+     
         if (empty($data['name'])) {
             throw new Exception('El nombre de la categoría es requerido');
         }
@@ -296,7 +252,6 @@ class CategoryService
             throw new Exception('El color debe estar en formato hexadecimal válido');
         }
 
-        // Check for duplicate names
         if (isset($data['user_id'])) {
             $exists = $this->repository->nameExistsForUser(
                 $data['name'],

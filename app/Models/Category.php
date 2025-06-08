@@ -50,7 +50,7 @@ class Category extends Model
     public function resolveRouteBinding($value, $field = null)
     {
         return $this->where('id', $value)
-                   ->where('user_id', auth()->id())
+                   ->where('user_id', auth('sanctum')->id())
                    ->firstOrFail();
     }
 
