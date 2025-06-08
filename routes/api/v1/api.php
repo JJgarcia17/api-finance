@@ -1,7 +1,9 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AccountController;
 use App\Http\Controllers\Api\V1\AuthController;
-use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\V1\CategoryController;
+use App\Http\Controllers\Api\V1\TransactionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -20,16 +22,39 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('refresh', [AuthController::class, 'refresh']);
     });
 
-    // Categories - Rutas CRUD
-    Route::apiResource('categories', CategoryController::class);
-    
-    // Categories - Rutas adicionales
+    // Categories 
     Route::prefix('categories')->group(function () {
         Route::post('{category}/restore', [CategoryController::class, 'restore']);
         Route::post('{category}/toggle-status', [CategoryController::class, 'toggleStatus']);
     });
 
-    // Ruta de ejemplo (mantener por ahora)
+    Route::apiResource('categories', CategoryController::class);
+    
+    // Additional account routes
+    Route::group(['prefix' => 'accounts'], function () {
+        Route::post('{account}/restore', [AccountController::class, 'restore'])
+            ->name('accounts.restore')
+            ->withTrashed();
+        Route::patch('{account}/toggle-status', [AccountController::class, 'toggleStatus'])
+            ->name('accounts.toggle-status');
+        
+        Route::get('stats', [AccountController::class, 'stats'])
+            ->name('accounts.stats');
+    });
+
+    Route::apiResource('accounts', AccountController::class);
+
+    // Transactions
+    Route::group(['prefix' => 'transactions'], function () {
+        Route::post('{transaction}/restore', [TransactionController::class, 'restore'])
+        ->name('transactions.restore')
+        ->withTrashed();
+        Route::get('stats', [TransactionController::class, 'stats'])
+        ->name('transactions.stats');
+    });
+
+    Route::apiResource('transactions', TransactionController::class);
+
     Route::get('/user', function (Request $request) {
         return $request->user();
     });

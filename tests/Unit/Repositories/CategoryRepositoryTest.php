@@ -5,7 +5,7 @@ namespace Tests\Unit\Repositories;
 use Tests\TestCase;
 use App\Models\User;
 use App\Models\Category;
-use App\Repositories\CategoryRepository;
+use App\Repositories\Category\CategoryRepository;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Laravel\Sanctum\Sanctum;
