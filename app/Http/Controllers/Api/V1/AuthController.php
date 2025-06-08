@@ -5,15 +5,17 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
-use App\Http\Resources\UserResource;
-use App\Services\AuthService;
+use App\Http\Resources\Auth\UserResource;
+use App\Services\Auth\AuthService;
+use App\Traits\HasLogging;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Exception;
-use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
+    use HasLogging;
+
     public function __construct(
         private AuthService $authService
     ) {}
@@ -36,7 +38,7 @@ class AuthController extends Controller
                 ]
             ], 201);
         } catch (Exception $e) {
-            Log::error('Error en registro: ' . $e->getMessage());
+            $this->logError('Error en registro', [], $e);
             return response()->json([
                 'success' => false,
                 'status' => 500,
@@ -72,7 +74,7 @@ class AuthController extends Controller
                 ]
             ], 200);
         } catch (Exception $e) {
-            Log::error('Error en login: ' . $e->getMessage());
+            $this->logError('Error en login', [], $e);
             return response()->json([
                 'success' => false,
                 'status' => 500,
@@ -96,7 +98,7 @@ class AuthController extends Controller
                 'message' => $result['message']
             ], 200);
         } catch (Exception $e) {
-            Log::error('Error en logout: ' . $e->getMessage());
+            $this->logError('Error en logout', [], $e);
             return response()->json([
                 'success' => false,
                 'status' => 500,
@@ -123,7 +125,7 @@ class AuthController extends Controller
                 ]
             ], 200);
         } catch (Exception $e) {
-            Log::error('Error al obtener usuario: ' . $e->getMessage());
+            $this->logError('Error al obtener usuario', [], $e);
             return response()->json([
                 'success' => false,
                 'status' => 500,
@@ -150,7 +152,7 @@ class AuthController extends Controller
                 ]
             ], 200);
         } catch (Exception $e) {
-            Log::error('Error al renovar token: ' . $e->getMessage());
+            $this->logError('Error al renovar token', [], $e);
             return response()->json([
                 'success' => false,
                 'status' => 500,

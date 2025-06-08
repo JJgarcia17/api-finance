@@ -3,8 +3,8 @@
 namespace Tests\Unit\Services;
 
 use Tests\TestCase;
-use App\Services\CategoryService;
-use App\Repositories\CategoryRepository;
+use App\Services\Category\CategoryService;
+use App\Repositories\Category\CategoryRepository;
 use App\Models\Category;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;

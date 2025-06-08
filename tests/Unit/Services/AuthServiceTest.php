@@ -3,7 +3,7 @@
 namespace Tests\Unit\Services;
 
 use App\Models\User;
-use App\Services\AuthService;
+use App\Services\Auth\AuthService;
 use Exception;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;

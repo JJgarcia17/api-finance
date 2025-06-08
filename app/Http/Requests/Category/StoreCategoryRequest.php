@@ -1,51 +1,41 @@
 <?php
 
-namespace App\Http\Requests;
+namespace App\Http\Requests\Category;
 
 use App\Models\Category;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class UpdateCategoryRequest extends FormRequest
+class StoreCategoryRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
-        // El route model binding ya verifica que la categoría pertenece al usuario
         return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     */
     public function rules(): array
     {
-        $category = $this->route('category');
-        
         return [
             'name' => [
-                'sometimes',
+                'required',
                 'string',
                 'max:255',
                 Rule::unique('categories')
-                    ->where('user_id', auth()->user()->id)
-                    ->where('type', $this->input('type', $category->type))
-                    ->ignore($category->id)
+                    ->where('user_id', auth('sanctum')->id())
+                    ->where('type', $this->input('type'))
             ],
             'type' => [
-                'sometimes',
+                'required',
                 'string',
                 Rule::in(Category::getTypes())
             ],
             'color' => [
-                'sometimes',
+                'required',
                 'string',
                 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'
             ],
             'icon' => [
-                'sometimes',
+                'required',
                 'string',
                 'max:100'
             ],
@@ -59,10 +49,11 @@ class UpdateCategoryRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'name.unique' => 'Ya existe una categoría con este nombre para este tipo.',
+            'name.unique' => 'Ya tienes una categoría con este nombre para el tipo seleccionado.',
             'type.in' => 'El tipo de categoría debe ser: ' . implode(', ', Category::getTypes()),
-            'color.regex' => 'El color debe ser un código hexadecimal válido.',
-            'icon.max' => 'El icono no puede tener más de 100 caracteres.',
+            'color.regex' => 'El color debe ser un código hexadecimal válido (ej: #FF0000).',
         ];
     }
+    
+    // Sin prepareForValidation - más limpio
 }
