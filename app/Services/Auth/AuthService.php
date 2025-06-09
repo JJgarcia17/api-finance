@@ -1,15 +1,17 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Auth;
 
 use App\Models\User;
+use App\Traits\HasLogging;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 use Exception;
-use Illuminate\Support\Facades\Log;
 
 class AuthService
 {
+    use HasLogging;
+
     /**
      * Registrar nuevo usuario
      */
@@ -36,7 +38,7 @@ class AuthService
             ];
         } catch (Exception $e) {
             DB::rollBack();
-            Log::error('Error en registro de usuario: ' . $e->getMessage());
+            $this->logError('Error en registro de usuario', [], $e);
             throw new Exception('Error interno del servidor durante el registro');
         }
     }
@@ -68,7 +70,7 @@ class AuthService
                 'message' => 'Inicio de sesión exitoso'
             ];
         } catch (Exception $e) {
-            Log::error('Error en inicio de sesión: ' . $e->getMessage());
+            $this->logError('Error en inicio de sesión', [], $e);
             throw new Exception('Error interno del servidor durante el inicio de sesión');
         }
     }
@@ -88,7 +90,7 @@ class AuthService
                 'message' => 'Sesión cerrada exitosamente'
             ];
         } catch (Exception $e) {
-            Log::error('Error al cerrar sesión: ' . $e->getMessage());
+            $this->logError('Error al cerrar sesión', [], $e);
             throw new Exception('Error interno del servidor al cerrar sesión');
         }
     }
@@ -113,7 +115,7 @@ class AuthService
                 'message' => 'Token renovado exitosamente'
             ];
         } catch (Exception $e) {
-            Log::error('Error al renovar token: ' . $e->getMessage());
+            $this->logError('Error al renovar token', [], $e);
             throw new Exception('Error interno del servidor al renovar token');
         }
     }
@@ -130,7 +132,7 @@ class AuthService
                 'message' => 'Usuario obtenido exitosamente'
             ];
         } catch (Exception $e) {
-            Log::error('Error al obtener usuario: ' . $e->getMessage());
+            $this->logError('Error al obtener usuario', [], $e);
             throw new Exception('Error interno del servidor al obtener usuario');
         }
     }
