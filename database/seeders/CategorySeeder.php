@@ -29,57 +29,57 @@ class CategorySeeder extends Seeder
         $incomeCategories = [
             [
                 'name' => 'Salario',
-                'description' => 'Ingresos por trabajo dependiente',
                 'color' => '#10B981',
-                'type' => Category::TYPE_INCOME,
+                'icon' => 'briefcase',
+                'type' => 'income',
                 'is_active' => true,
                 'user_id' => $user->id,
             ],
             [
                 'name' => 'Freelance',
-                'description' => 'Ingresos por trabajo independiente',
                 'color' => '#3B82F6',
-                'type' => Category::TYPE_INCOME,
+                'icon' => 'laptop',
+                'type' => 'income',
                 'is_active' => true,
                 'user_id' => $user->id,
             ],
             [
                 'name' => 'Inversiones',
-                'description' => 'Dividendos, intereses y ganancias de capital',
                 'color' => '#8B5CF6',
-                'type' => Category::TYPE_INCOME,
+                'icon' => 'trending-up',
+                'type' => 'income',
                 'is_active' => true,
                 'user_id' => $user->id,
             ],
             [
                 'name' => 'Alquiler',
-                'description' => 'Ingresos por propiedades en alquiler',
                 'color' => '#F59E0B',
-                'type' => Category::TYPE_INCOME,
+                'icon' => 'home',
+                'type' => 'income',
                 'is_active' => true,
                 'user_id' => $user->id,
             ],
             [
                 'name' => 'Bonos',
-                'description' => 'Bonificaciones y premios',
                 'color' => '#EF4444',
-                'type' => Category::TYPE_INCOME,
+                'icon' => 'gift',
+                'type' => 'income',
                 'is_active' => true,
                 'user_id' => $user->id,
             ],
             [
                 'name' => 'Ventas',
-                'description' => 'Ingresos por venta de productos o servicios',
                 'color' => '#06B6D4',
-                'type' => Category::TYPE_INCOME,
+                'icon' => 'shopping-cart',
+                'type' => 'income',
                 'is_active' => true,
                 'user_id' => $user->id,
             ],
             [
                 'name' => 'Otros Ingresos',
-                'description' => 'Ingresos diversos no categorizados',
                 'color' => '#84CC16',
-                'type' => Category::TYPE_INCOME,
+                'icon' => 'plus-circle',
+                'type' => 'income',
                 'is_active' => true,
                 'user_id' => $user->id,
             ],
@@ -89,139 +89,140 @@ class CategorySeeder extends Seeder
         $expenseCategories = [
             [
                 'name' => 'Alimentación',
-                'description' => 'Supermercado, restaurantes y comida',
-                'color' => '#DC2626',
-                'type' => Category::TYPE_EXPENSE,
-                'is_active' => true,
-                'user_id' => $user->id,
-            ],
-            [
-                'name' => 'Vivienda',
-                'description' => 'Alquiler, hipoteca, servicios básicos',
-                'color' => '#7C2D12',
-                'type' => Category::TYPE_EXPENSE,
+                'color' => '#F97316',
+                'icon' => 'utensils',
+                'type' => 'expense',
                 'is_active' => true,
                 'user_id' => $user->id,
             ],
             [
                 'name' => 'Transporte',
-                'description' => 'Combustible, transporte público, mantenimiento',
-                'color' => '#1E40AF',
-                'type' => Category::TYPE_EXPENSE,
+                'color' => '#3B82F6',
+                'icon' => 'car',
+                'type' => 'expense',
                 'is_active' => true,
                 'user_id' => $user->id,
             ],
             [
-                'name' => 'Salud',
-                'description' => 'Médicos, medicamentos, seguros de salud',
-                'color' => '#059669',
-                'type' => Category::TYPE_EXPENSE,
-                'is_active' => true,
-                'user_id' => $user->id,
-            ],
-            [
-                'name' => 'Educación',
-                'description' => 'Cursos, libros, materiales educativos',
-                'color' => '#7C3AED',
-                'type' => Category::TYPE_EXPENSE,
+                'name' => 'Vivienda',
+                'color' => '#8B5CF6',
+                'icon' => 'home',
+                'type' => 'expense',
                 'is_active' => true,
                 'user_id' => $user->id,
             ],
             [
                 'name' => 'Entretenimiento',
-                'description' => 'Cine, streaming, hobbies, deportes',
-                'color' => '#DB2777',
-                'type' => Category::TYPE_EXPENSE,
+                'color' => '#EC4899',
+                'icon' => 'film',
+                'type' => 'expense',
+                'is_active' => true,
+                'user_id' => $user->id,
+            ],
+            [
+                'name' => 'Salud',
+                'color' => '#10B981',
+                'icon' => 'heart',
+                'type' => 'expense',
+                'is_active' => true,
+                'user_id' => $user->id,
+            ],
+            [
+                'name' => 'Educación',
+                'color' => '#F59E0B',
+                'icon' => 'book-open',
+                'type' => 'expense',
                 'is_active' => true,
                 'user_id' => $user->id,
             ],
             [
                 'name' => 'Ropa',
-                'description' => 'Vestimenta y accesorios',
-                'color' => '#9333EA',
-                'type' => Category::TYPE_EXPENSE,
+                'color' => '#EF4444',
+                'icon' => 'shopping-bag',
+                'type' => 'expense',
+                'is_active' => true,
+                'user_id' => $user->id,
+            ],
+            [
+                'name' => 'Servicios',
+                'color' => '#06B6D4',
+                'icon' => 'cog',
+                'type' => 'expense',
                 'is_active' => true,
                 'user_id' => $user->id,
             ],
             [
                 'name' => 'Tecnología',
-                'description' => 'Dispositivos, software, internet',
-                'color' => '#0891B2',
-                'type' => Category::TYPE_EXPENSE,
-                'is_active' => true,
-                'user_id' => $user->id,
-            ],
-            [
-                'name' => 'Servicios Financieros',
-                'description' => 'Comisiones bancarias, seguros',
-                'color' => '#B45309',
-                'type' => Category::TYPE_EXPENSE,
-                'is_active' => true,
-                'user_id' => $user->id,
-            ],
-            [
-                'name' => 'Impuestos',
-                'description' => 'Impuestos y obligaciones fiscales',
-                'color' => '#991B1B',
-                'type' => Category::TYPE_EXPENSE,
-                'is_active' => true,
-                'user_id' => $user->id,
-            ],
-            [
-                'name' => 'Ahorros',
-                'description' => 'Transferencias a cuentas de ahorro',
-                'color' => '#065F46',
-                'type' => Category::TYPE_EXPENSE,
-                'is_active' => true,
-                'user_id' => $user->id,
-            ],
-            [
-                'name' => 'Regalos',
-                'description' => 'Obsequios y donaciones',
-                'color' => '#BE185D',
-                'type' => Category::TYPE_EXPENSE,
-                'is_active' => true,
-                'user_id' => $user->id,
-            ],
-            [
-                'name' => 'Viajes',
-                'description' => 'Vacaciones y viajes de placer',
-                'color' => '#0369A1',
-                'type' => Category::TYPE_EXPENSE,
-                'is_active' => true,
-                'user_id' => $user->id,
-            ],
-            [
-                'name' => 'Mascotas',
-                'description' => 'Cuidado y alimentación de mascotas',
-                'color' => '#A3A3A3',
-                'type' => Category::TYPE_EXPENSE,
+                'color' => '#6366F1',
+                'icon' => 'desktop-computer',
+                'type' => 'expense',
                 'is_active' => true,
                 'user_id' => $user->id,
             ],
             [
                 'name' => 'Otros Gastos',
-                'description' => 'Gastos diversos no categorizados',
                 'color' => '#6B7280',
-                'type' => Category::TYPE_EXPENSE,
+                'icon' => 'dots-horizontal',
+                'type' => 'expense',
                 'is_active' => true,
                 'user_id' => $user->id,
             ],
         ];
 
-        // Insertar categorías usando transacciones
+        // Insertar categorías usando transacción para mejor rendimiento
         DB::transaction(function () use ($incomeCategories, $expenseCategories) {
             // Insertar categorías de ingresos
             foreach ($incomeCategories as $category) {
-                Category::create($category);
+                Category::firstOrCreate(
+                    [
+                        'user_id' => $category['user_id'],
+                        'name' => $category['name'],
+                        'type' => $category['type']
+                    ],
+                    $category
+                );
             }
 
             // Insertar categorías de gastos
             foreach ($expenseCategories as $category) {
-                Category::create($category);
+                Category::firstOrCreate(
+                    [
+                        'user_id' => $category['user_id'],
+                        'name' => $category['name'],
+                        'type' => $category['type']
+                    ],
+                    $category
+                );
             }
         });
 
-        $this->command->info('✅ Categorías creadas exitosamente:');
+        // Crear categorías adicionales para otros usuarios
+        $otherUsers = User::where('email', '!=', 'test@example.com')->get();
+        
+        foreach ($otherUsers as $otherUser) {
+            // Crear algunas categorías básicas para cada usuario
+            $basicCategories = [
+                ['name' => 'Salario', 'type' => 'income', 'color' => '#10B981', 'icon' => 'briefcase'],
+                ['name' => 'Alimentación', 'type' => 'expense', 'color' => '#F97316', 'icon' => 'utensils'],
+                ['name' => 'Transporte', 'type' => 'expense', 'color' => '#3B82F6', 'icon' => 'car'],
+                ['name' => 'Entretenimiento', 'type' => 'expense', 'color' => '#EC4899', 'icon' => 'film'],
+            ];
+
+            foreach ($basicCategories as $category) {
+                Category::firstOrCreate(
+                    [
+                        'user_id' => $otherUser->id,
+                        'name' => $category['name'],
+                        'type' => $category['type']
+                    ],
+                    array_merge($category, [
+                        'user_id' => $otherUser->id,
+                        'is_active' => true
+                    ])
+                );
+            }
+        }
+
+        $this->command->info('✅ Categorías creadas exitosamente');
     }
 }
