@@ -114,4 +114,89 @@ class TransactionRepository
             'current_month_expenses' => $currentMonthExpenses
         ];
     }
+
+    /**
+     * Get transaction statistics by currency for user
+     */
+    public function getStatsByCurrency(int $userId): array
+    {
+        // Get all transactions with account currency information
+        $transactions = $this->model->forUser($userId)
+            ->with('account')
+            ->get();
+        
+        // Group by currency
+        $statsByCurrency = $transactions->groupBy(function ($transaction) {
+            return $transaction->account->currency;
+        })->map(function ($currencyTransactions, $currency) {
+            $income = $currencyTransactions->where('type', 'income')->sum('amount');
+            $expenses = $currencyTransactions->where('type', 'expense')->sum('amount');
+            
+            return [
+                'currency' => $currency,
+                'total_income' => (float) $income,
+                'total_expenses' => (float) $expenses,
+                'net_balance' => (float) ($income - $expenses),
+                'transaction_count' => $currencyTransactions->count()
+            ];
+        });
+
+        return $statsByCurrency->values()->toArray();
+    }
+    
+    public function getMonthlyTrends(int $userId, int $months = 12): array
+    {
+        // Obtener transacciones de los últimos meses usando Eloquent
+        $startDate = now()->subMonths($months)->startOfMonth();
+        
+        $transactions = $this->model->forUser($userId)
+            ->where('transaction_date', '>=', $startDate)
+            ->orderBy('transaction_date', 'asc')
+            ->get();
+
+        // Si no hay transacciones, retornar array vacío
+        if ($transactions->isEmpty()) {
+            return [];
+        }
+
+        // Agrupar transacciones por mes usando Eloquent Collection
+        $groupedByMonth = $transactions->groupBy(function ($transaction) {
+            return $transaction->transaction_date->format('Y-m');
+        });
+
+        // Procesar cada grupo de mes
+        $monthlyData = $groupedByMonth->map(function ($monthTransactions, $monthKey) {
+            // Usar la primera transacción para obtener fecha del mes
+            $firstTransaction = $monthTransactions->first();
+            $date = $firstTransaction->transaction_date;
+            
+            // Filtrar ingresos y gastos usando Collection methods
+            $incomeTransactions = $monthTransactions->where('type', 'income');
+            $expenseTransactions = $monthTransactions->where('type', 'expense');
+            
+            $income = $incomeTransactions->sum('amount');
+            $expenses = $expenseTransactions->sum('amount');
+            
+            return [
+                'month' => $date->format('M'), // Ene, Feb, etc.
+                'year' => (int) $date->format('Y'),
+                'month_number' => (int) $date->format('m'),
+                'income' => (float) $income,
+                'expenses' => (float) $expenses,
+                'balance' => (float) ($income - $expenses),
+                'transaction_count' => $monthTransactions->count()
+            ];
+        });
+
+        // Convertir a array, ordenar por fecha (más antiguos primero para el gráfico)
+        $result = $monthlyData->values()
+            ->sortBy(function ($item) {
+                return $item['year'] * 12 + $item['month_number'];
+            })
+            ->take($months)
+            ->values()
+            ->toArray();
+        
+        return $result;
+    }
 }

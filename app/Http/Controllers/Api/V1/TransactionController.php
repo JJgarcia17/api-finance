@@ -234,4 +234,66 @@ class TransactionController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get transaction statistics by currency
+     */
+    public function statsByCurrency(): JsonResponse
+    {
+        try {
+            $stats = $this->transactionService->getTransactionStatsByCurrency($this->userId());
+
+            return response()->json([
+                'success' => true,
+                'data' => $stats,
+                'message' => 'Estadísticas por moneda obtenidas exitosamente',
+            ], 200);
+        } catch (Exception $e) {
+            $this->logError('Error al obtener estadísticas por moneda en TransactionController@statsByCurrency', [
+                'user_id' => $this->userId()
+            ], $e);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al obtener las estadísticas por moneda',
+                'error' => config('app.debug') ? $e->getMessage() : 'Error interno del servidor',
+            ], 500);
+        }
+    }
+
+    /**
+     * Get monthly trends
+     */
+    public function monthlyTrends(Request $request): JsonResponse
+    {
+        try {
+            $months = $request->get('months', 12); // Por defecto 12 meses
+            $trends = $this->transactionService->getMonthlyTrends($this->userId(), $months);
+
+            // Log para debugging
+            Log::info('Monthly trends requested', [
+                'user_id' => $this->userId(),
+                'months' => $months,
+                'trends_count' => count($trends),
+                'trends_sample' => array_slice($trends, 0, 2) // Primeros 2 elementos
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => $trends,
+                'message' => 'Tendencias mensuales obtenidas exitosamente',
+            ], 200);
+        } catch (Exception $e) {
+            $this->logError('Error al obtener tendencias mensuales en TransactionController@monthlyTrends', [
+                'user_id' => $this->userId(),
+                'months' => $months ?? null
+            ], $e);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al obtener las tendencias mensuales',
+                'error' => config('app.debug') ? $e->getMessage() : 'Error interno del servidor',
+            ], 500);
+        }
+    }
 }

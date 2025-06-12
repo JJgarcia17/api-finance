@@ -19,7 +19,7 @@ class AuthService
     {
         try {
             DB::beginTransaction();
-            
+
             $user = User::create([
                 'name' => $data['name'],
                 'email' => $data['email'],
@@ -59,7 +59,7 @@ class AuthService
             }
 
             // Revocar tokens anteriores (opcional)
-            $user->tokens()->delete();
+            // $user->tokens()->delete();
 
             $token = $user->createToken('auth-token')->plainTextToken;
 
