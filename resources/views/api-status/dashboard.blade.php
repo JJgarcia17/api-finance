@@ -7,10 +7,11 @@
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     @else
+        <!-- Fallback CSS para producción -->
+        <script src="https://cdn.tailwindcss.com"></script>
     @endif
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-
 </head>
 <body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 min-h-screen">
     <div class="container mx-auto px-4 py-6 max-w-7xl">
@@ -179,11 +180,19 @@
         </div>
 
         <!-- Refresh Button -->
-        <div class="mt-8 text-center">
+        <div class="mt-8 text-center space-y-4">
             <button id="refreshBtn" class="group bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-4 px-8 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
                 <i class="fas fa-sync-alt mr-3 group-hover:rotate-180 transition-transform duration-500"></i>
                 Actualizar Datos
             </button>
+            
+            <!-- Diagnostics Button -->
+            <div>
+                <button id="diagnosticsBtn" class="bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white font-medium py-2 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300">
+                    <i class="fas fa-diagnoses mr-2"></i>
+                    Ver Diagnósticos
+                </button>
+            </div>
         </div>
     </div>
 
@@ -205,6 +214,11 @@
                     loadApiStatus();
                 }
             });
+            
+            // Botón de diagnósticos
+            document.getElementById('diagnosticsBtn').addEventListener('click', function() {
+                showDiagnostics();
+            });
         });
 
         async function loadApiStatus() {
@@ -217,7 +231,14 @@
             refreshBtn.disabled = true;
 
             try {
-                const response = await fetch('/api-status/json');
+                // Usar URL absoluta o relativa según el entorno
+                const baseUrl = window.location.origin;
+                const response = await fetch(`${baseUrl}/api-status/json`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
                 const data = await response.json();
 
                 if (data.success) {
@@ -227,9 +248,10 @@
                     updateAuthStatus(data.data.auth_token_status);
                     updateLastUpdated(data.data.last_updated);
                 } else {
-                    showError('Error al cargar los datos: ' + data.message);
+                    showError('Error al cargar los datos: ' + (data.message || 'Error desconocido'));
                 }
             } catch (error) {
+                console.error('Error en loadApiStatus:', error);
                 showError('Error de conexión: ' + error.message);
             } finally {
                 isLoading = false;
@@ -548,6 +570,48 @@
                     setTimeout(() => errorDiv.remove(), 300);
                 }
             }, 5000);
+        }
+        
+        async function showDiagnostics() {
+            try {
+                const baseUrl = window.location.origin;
+                const response = await fetch(`${baseUrl}/api-status/diagnostics`);
+                const data = await response.json();
+                
+                // Crear modal de diagnósticos
+                const modal = document.createElement('div');
+                modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+                modal.innerHTML = `
+                    <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-96 overflow-auto">
+                        <div class="p-6 border-b border-gray-200">
+                            <div class="flex justify-between items-center">
+                                <h3 class="text-xl font-bold text-gray-800">
+                                    <i class="fas fa-diagnoses mr-2 text-blue-600"></i>
+                                    Diagnósticos del Sistema
+                                </h3>
+                                <button onclick="this.closest('.fixed').remove()" class="text-gray-500 hover:text-gray-700">
+                                    <i class="fas fa-times text-xl"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="p-6">
+                            <pre class="bg-gray-100 p-4 rounded-lg text-sm overflow-auto font-mono">${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                
+                // Cerrar modal al hacer clic fuera
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        modal.remove();
+                    }
+                });
+                
+            } catch (error) {
+                showError('Error al cargar diagnósticos: ' + error.message);
+            }
         }
     </script>
 </body>

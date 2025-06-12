@@ -10,24 +10,100 @@ use Illuminate\Support\Facades\Log;
 class ApiStatusController extends Controller
 {
     private $baseUrl;
-    private $credentials = [
-        'email' => 'admin@example.com',
-        'password' => 'password'
-    ];
+    private $credentials;
 
     public function __construct()
     {
-        $this->baseUrl = config('app.url');
+        // Detectar URL base automáticamente
+        $configUrl = config('app.url');
+        
+        // Si la URL de configuración no es válida para el entorno actual, usar detección automática
+        if ($this->isLocalUrl($configUrl) && !$this->isLocalEnvironment()) {
+            $this->baseUrl = $this->detectBaseUrl();
+        } else {
+            $this->baseUrl = rtrim($configUrl, '/');
+        }
+        
+        $this->credentials = [
+            'email' => config('api_status.auth.email', 'admin@example.com'),
+            'password' => config('api_status.auth.password', 'password')
+        ];
+    }
+    
+    private function isLocalUrl($url)
+    {
+        return strpos($url, '.test') !== false || 
+               strpos($url, 'localhost') !== false || 
+               strpos($url, '127.0.0.1') !== false ||
+               strpos($url, '::1') !== false;
+    }
+    
+    private function isLocalEnvironment()
+    {
+        return in_array(config('app.env'), ['local', 'development']) ||
+               isset($_SERVER['HTTP_HOST']) && (
+                   strpos($_SERVER['HTTP_HOST'], '.test') !== false ||
+                   strpos($_SERVER['HTTP_HOST'], 'localhost') !== false
+               );
+    }
+    
+    private function detectBaseUrl()
+    {
+        // Detectar protocolo
+        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || 
+                   $_SERVER['SERVER_PORT'] == 443 ? 'https://' : 'http://';
+        
+        // Detectar host
+        $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
+        
+        return $protocol . $host;
     }
 
     public function dashboard()
     {
+        // Verificar que la vista existe
+        if (!view()->exists('api-status.dashboard')) {
+            return response()->json([
+                'error' => 'Vista no encontrada',
+                'message' => 'La vista api-status.dashboard no existe'
+            ], 404);
+        }
+        
         return view('api-status.dashboard');
+    }
+    
+    public function diagnostics()
+    {
+        return response()->json([
+            'app_url_config' => config('app.url'),
+            'detected_base_url' => $this->baseUrl,
+            'server_info' => [
+                'http_host' => $_SERVER['HTTP_HOST'] ?? 'unknown',
+                'server_name' => $_SERVER['SERVER_NAME'] ?? 'unknown',
+                'https' => $_SERVER['HTTPS'] ?? 'off',
+                'server_port' => $_SERVER['SERVER_PORT'] ?? 'unknown',
+                'request_uri' => $_SERVER['REQUEST_URI'] ?? 'unknown'
+            ],
+            'environment' => config('app.env'),
+            'auth_config' => [
+                'email' => $this->credentials['email'],
+                'password_configured' => !empty($this->credentials['password'])
+            ],
+            'test_urls' => [
+                'login_url' => $this->baseUrl . '/api/v1/auth/login',
+                'health_url' => $this->baseUrl . '/health'
+            ]
+        ]);
     }
 
     public function apiStatus()
     {
         try {
+            // Verificar configuración
+            if (empty($this->baseUrl) || $this->baseUrl === 'null') {
+                throw new \Exception('APP_URL no está configurado correctamente');
+            }
+            
             // Login una sola vez y obtener token
             $token = $this->getAuthToken();
             
@@ -49,17 +125,30 @@ class ApiStatusController extends Controller
                     'endpoints' => $results,
                     'stats' => $stats,
                     'auth_token_status' => $token ? 'active' : 'failed',
-                    'last_updated' => now()->toISOString()
+                    'last_updated' => now()->toISOString(),
+                    'base_url' => $this->baseUrl,
+                    'config_url' => config('app.url'),
+                    'detected_host' => $_SERVER['HTTP_HOST'] ?? 'unknown',
+                    'server_name' => $_SERVER['SERVER_NAME'] ?? 'unknown',
+                    'environment' => config('app.env'),
+                    'auth_credentials' => [
+                        'email' => $this->credentials['email'],
+                        'password_set' => !empty($this->credentials['password'])
+                    ]
                 ]
             ]);
             
         } catch (\Exception $e) {
-            Log::error('API Status Error: ' . $e->getMessage());
+            Log::error('API Status Error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'base_url' => $this->baseUrl ?? 'undefined'
+            ]);
             
             return response()->json([
                 'success' => false,
                 'message' => 'Error al verificar endpoints',
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : 'Error interno del servidor',
+                'base_url' => $this->baseUrl ?? 'undefined'
             ], 500);
         }
     }
@@ -76,8 +165,27 @@ class ApiStatusController extends Controller
         
         // Hacer login para obtener nuevo token
         try {
+            $loginUrl = $this->baseUrl . '/api/v1/auth/login';
+            
+            Log::info('Intentando login para API Status', [
+                'url' => $loginUrl,
+                'email' => $this->credentials['email'],
+                'base_url' => $this->baseUrl
+            ]);
+            
+            // Verificar que la URL login sea accesible primero
+            $testResponse = Http::timeout(5)->get($this->baseUrl);
+            if (!$testResponse->successful() && $testResponse->status() !== 404) {
+                Log::error('Base URL no es accesible', [
+                    'base_url' => $this->baseUrl,
+                    'status' => $testResponse->status(),
+                    'error' => $testResponse->body()
+                ]);
+                return null;
+            }
+            
             $response = Http::timeout(10)
-                ->post($this->baseUrl . '/api/v1/auth/login', $this->credentials);
+                ->post($loginUrl, $this->credentials);
             
             if ($response->successful()) {
                 $data = $response->json();
@@ -86,17 +194,24 @@ class ApiStatusController extends Controller
                 if ($newToken) {
                     // Guardar en cache por 50 minutos
                     Cache::put($cacheKey, $newToken, 50 * 60);
+                    Log::info('Login exitoso para API Status');
                     return $newToken;
                 }
             }
             
-            Log::warning('Login failed', [
+            Log::warning('Login failed para API Status', [
                 'status' => $response->status(),
-                'body' => $response->body()
+                'body' => $response->body(),
+                'url' => $loginUrl,
+                'credentials_email' => $this->credentials['email']
             ]);
             
         } catch (\Exception $e) {
-            Log::error('Login exception: ' . $e->getMessage());
+            Log::error('Login exception para API Status', [
+                'error' => $e->getMessage(),
+                'url' => $loginUrl ?? 'unknown',
+                'base_url' => $this->baseUrl
+            ]);
         }
         
         return null;
@@ -167,25 +282,29 @@ class ApiStatusController extends Controller
                 $headers['Authorization'] = 'Bearer ' . $token;
             }
             
-            $client = Http::withHeaders($headers)->timeout(10);
+            $timeout = config('api_status.timeout.endpoint_check', 10);
+            $client = Http::withHeaders($headers)->timeout($timeout);
+            
+            // Construir URL completa
+            $fullUrl = $this->baseUrl . $endpoint['url'];
             
             // Solo verificar existencia - no enviar datos
             switch ($endpoint['method']) {
                 case 'GET':
-                    $response = $client->get($this->baseUrl . $endpoint['url']);
+                    $response = $client->get($fullUrl);
                     break;
                 case 'POST':
                     // Para POST, enviar petición vacía para verificar que existe
-                    $response = $client->post($this->baseUrl . $endpoint['url'], []);
+                    $response = $client->post($fullUrl, []);
                     break;
                 case 'PUT':
-                    $response = $client->put($this->baseUrl . $endpoint['url'], []);
+                    $response = $client->put($fullUrl, []);
                     break;
                 case 'DELETE':
-                    $response = $client->delete($this->baseUrl . $endpoint['url']);
+                    $response = $client->delete($fullUrl);
                     break;
                 default:
-                    $response = $client->get($this->baseUrl . $endpoint['url']);
+                    $response = $client->get($fullUrl);
             }
             
             $responseTime = round((microtime(true) - $startTime) * 1000);
@@ -195,6 +314,7 @@ class ApiStatusController extends Controller
                 'name' => $endpoint['name'],
                 'method' => $endpoint['method'],
                 'url' => $endpoint['url'],
+                'full_url' => $fullUrl,
                 'category' => $endpoint['category'],
                 'status' => $status,
                 'response_time' => $responseTime,
@@ -205,17 +325,43 @@ class ApiStatusController extends Controller
         } catch (\Exception $e) {
             $responseTime = round((microtime(true) - $startTime) * 1000);
             
+            // Log del error para debugging
+            Log::warning('Error verificando endpoint', [
+                'endpoint' => $endpoint['name'],
+                'url' => $endpoint['url'],
+                'error' => $e->getMessage()
+            ]);
+            
             return [
                 'name' => $endpoint['name'],
                 'method' => $endpoint['method'],
                 'url' => $endpoint['url'],
+                'full_url' => $this->baseUrl . $endpoint['url'],
                 'category' => $endpoint['category'],
                 'status' => 'error',
                 'response_time' => $responseTime,
                 'http_status' => 0,
-                'message' => 'Error: ' . $e->getMessage()
+                'message' => 'Error de conexión: ' . $this->getSimpleErrorMessage($e)
             ];
         }
+    }
+    
+    private function getSimpleErrorMessage(\Exception $e)
+    {
+        $message = $e->getMessage();
+        
+        // Simplificar mensajes de error comunes
+        if (strpos($message, 'cURL error 6') !== false) {
+            return 'No se pudo resolver el DNS';
+        }
+        if (strpos($message, 'cURL error 7') !== false) {
+            return 'No se pudo conectar al servidor';
+        }
+        if (strpos($message, 'Connection timed out') !== false) {
+            return 'Tiempo de conexión agotado';
+        }
+        
+        return $message;
     }
 
     private function determineStatus($response, $endpoint)
