@@ -20,7 +20,7 @@ use InvalidArgumentException;
 class CategoryController extends Controller
 {
     use HasAuthenticatedUser, HasLogging;
-    
+
     public function __construct(
         private CategoryService $categoryService
     ) {}
@@ -32,43 +32,43 @@ class CategoryController extends Controller
     {
         try {
             $filters = [];
-            
+
             // Text filters
             if ($request->filled('search')) {
                 $filters['search'] = $request->get('search');
             }
-            
+
             if ($request->filled('color')) {
                 $filters['color'] = $request->get('color');
             }
-            
+
             // Enum/Boolean filters
             if ($request->has('type')) {
                 $filters['type'] = $request->get('type');
             }
-            
+
             if ($request->has('is_active')) {
                 $filters['is_active'] = $request->get('is_active');
             }
-            
+
             // Pagination
-            $perPage = $request->get('per_page', 15);
-            $perPage = min($perPage, 100); 
-            
+            $perPage = $request->get('per_page', 50);
+            $perPage = min($perPage, 100);
+
             $categories = $this->categoryService->getCategoriesForUser($this->userId(), $filters, $perPage);
-            
+
             return response()->json([
                 'success' => true,
                 'data' => new CategoryCollection($categories),
                 'message' => 'Categorías obtenidas exitosamente',
                 'status' => 200
             ], 200);
-            
+
         } catch (Exception $e) {
             $this->logError('Error al obtener categorías', [
                 'filters' => $filters ?? []
             ], $e);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Error al obtener las categorías',
@@ -92,12 +92,12 @@ class CategoryController extends Controller
                 'message' => 'Categoría creada exitosamente',
                 'status' => 201
             ], 201);
-            
+
         } catch (Exception $e) {
             $this->logCrudError('create', 'categoría', 'store', $e, [
                 'data' => $request->validated()
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Error al crear la categoría',
@@ -114,30 +114,30 @@ class CategoryController extends Controller
     {
         try {
             $category = Category::where('user_id', $this->userId())->findOrFail($id);
-            
+
             return response()->json([
                 'success' => true,
                 'data' => new CategoryResource($category),
                 'message' => 'Categoría obtenida exitosamente',
                 'status' => 200
             ], 200);
-            
+
         } catch (ModelNotFoundException $e) {
             $this->logWarning('Categoría no encontrada', [
                 'category_id' => $id
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Categoría no encontrada',
                 'status' => 404
             ], 404);
-            
+
         } catch (Exception $e) {
             $this->logError('Error al obtener categoría', [
                 'category_id' => $id
             ], $e);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Error al obtener la categoría',
@@ -154,7 +154,7 @@ class CategoryController extends Controller
     {
         try {
             $category = Category::where('user_id', $this->userId())->findOrFail($id);
-            
+
             $updatedCategory = $this->categoryService->updateCategory($category->id, $request->validated(), $this->userId());
 
             return response()->json([
@@ -163,25 +163,25 @@ class CategoryController extends Controller
                 'message' => 'Categoría actualizada exitosamente',
                 'status' => 200
             ], 200);
-            
+
         } catch (ModelNotFoundException $e) {
             $this->logError('Categoría no encontrada para actualizar', [
                 'category_id' => $id,
                 'data' => $request->validated()
             ], $e);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Categoría no encontrada',
                 'status' => 404
             ], 404);
-            
+
         } catch (Exception $e) {
             $this->logError('Error al actualizar categoría en update', [
                 'category_id' => $id,
                 'data' => $request->validated()
             ], $e);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Error al actualizar la categoría',
@@ -198,31 +198,31 @@ class CategoryController extends Controller
     {
         try {
             $category = Category::where('user_id', $this->userId())->findOrFail($id);
-            
+
             $this->categoryService->deleteCategory($category->id, $this->userId());
-                 
+
             return response()->json([
                 'success' => true,
                 'message' => 'Categoría eliminada exitosamente',
                 'status' => 200
             ], 200);
-            
+
         } catch (ModelNotFoundException $e) {
             $this->logError('Categoría no encontrada para eliminar', [
                 'category_id' => $id
             ], $e);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Categoría no encontrada',
                 'status' => 404
             ], 404);
-            
+
         } catch (Exception $e) {
             $this->logCrudError('delete', 'categoría', 'destroy', $e, [
                 'category_id' => $id
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Error al eliminar la categoría',
@@ -239,32 +239,32 @@ class CategoryController extends Controller
     {
         try {
             $category = Category::where('user_id', $this->userId())->findOrFail($id);
-            
+
             $updatedCategory = $this->categoryService->toggleCategoryStatus($category->id, $this->userId());
-            
+
             return response()->json([
                 'success' => true,
                 'data' => new CategoryResource($updatedCategory),
                 'message' => 'Estado de categoría actualizado exitosamente',
                 'status' => 200
             ], 200);
-            
+
         } catch (ModelNotFoundException $e) {
             $this->logWarning('Categoría no encontrada para cambiar estado', [
                 'category_id' => $id
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Categoría no encontrada',
                 'status' => 404
             ], 404);
-            
+
         } catch (Exception $e) {
             $this->logError('Error al cambiar estado de categoría', [
                 'category_id' => $id
             ], $e);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Error al cambiar el estado de la categoría',
@@ -284,38 +284,38 @@ class CategoryController extends Controller
             if (!in_array($type, ['income', 'expense'])) {
                 throw new InvalidArgumentException('Tipo de categoría inválido. Debe ser income o expense.');
             }
-    
+
             $userId = $this->userId();
-            
+
             // Usar el método existente con filtro de tipo
             $categories = $this->categoryService->getCategoriesForUser(
-                $userId, 
+                $userId,
                 ['type' => $type], // Filtrar por tipo
                 1000 // Un número alto para obtener todas las categorías
             );
-    
+
             return response()->json([
                 'success' => true,
                 'data' => $categories->items(), // Obtener solo los elementos sin paginación
                 'message' => 'Categorías obtenidas exitosamente'
             ]);
-    
+
         } catch (InvalidArgumentException $e) {
             $this->logError('Tipo de categoría inválido', [
                 'type' => $type,
                 'error_message' => $e->getMessage()
             ], $e);
-    
+
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage()
             ], 400);
-    
+
         } catch (Exception $e) {
             $this->logCrudError('read', 'categorías por tipo', 'getByType', $e, [
                 'type' => $type
             ]);
-    
+
             return response()->json([
                 'success' => false,
                 'message' => 'Error interno del servidor'
@@ -330,30 +330,30 @@ class CategoryController extends Controller
     {
         try {
             $restoredCategory = $this->categoryService->restoreCategory((int)$id, $this->userId());
-            
+
             return response()->json([
                 'success' => true,
                 'data' => new CategoryResource($restoredCategory),
                 'message' => 'Categoría restaurada exitosamente',
                 'status' => 200
             ], 200);
-            
+
         } catch (ModelNotFoundException $e) {
             $this->logError('Categoría no encontrada para restaurar', [
                 'category_id' => $id
             ], $e);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Categoría no encontrada',
                 'status' => 404
             ], 404);
-            
+
         } catch (Exception $e) {
             $this->logCrudError('restore', 'categoría', 'restore', $e, [
                 'category_id' => $id
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Error al restaurar la categoría',

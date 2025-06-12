@@ -4,21 +4,22 @@ namespace App\Services\Transaction;
 
 use App\Models\Transaction;
 use App\Repositories\Transaction\TransactionRepository;
+use App\Services\Account\AccountBalanceService;
 use App\Traits\HasAuthenticatedUser;
 use App\Traits\HasLogging;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Exception;
-use Illuminate\Support\Facades\Log;
+
 
 class TransactionService
 {
     use HasAuthenticatedUser, HasLogging;
 
     public function __construct(
-        private TransactionRepository $transactionRepository
+        private TransactionRepository $transactionRepository,
+        private AccountBalanceService $accountBalanceService
     ) {}
 
     public function getTransactionsForUser(
@@ -62,13 +63,26 @@ class TransactionService
 
     public function createTransaction(array $data): Transaction
     {
+        DB::beginTransaction();
+        
         try {
-            DB::beginTransaction();
-
             $data['user_id'] = $this->userId();
             $transaction = $this->transactionRepository->create($data);
 
+            // Load the account relationship for balance update
+            $transaction->load('account');
+
+            // Update account balance
+            $this->accountBalanceService->updateBalanceForTransaction($transaction);
+
             DB::commit();
+
+            $this->logInfo('Transaction created successfully with balance update', [
+                'transaction_id' => $transaction->id,
+                'account_id' => $transaction->account_id,
+                'amount' => $transaction->amount,
+                'type' => $transaction->type
+            ]);
 
             return $transaction;
         } catch (Exception $e) {
@@ -83,12 +97,33 @@ class TransactionService
 
     public function updateTransaction(Transaction $transaction, array $data): Transaction
     {
+        DB::beginTransaction();
+        
         try {
-            DB::beginTransaction();
+            // Store original transaction data for balance reversion
+            $originalTransaction = $transaction->replicate();
+            $originalTransaction->load('account');
 
+            // Revert the original balance changes
+            $this->accountBalanceService->revertBalanceForTransaction($originalTransaction);
+
+            // Update the transaction
             $updatedTransaction = $this->transactionRepository->update($transaction, $data);
+            $updatedTransaction->load('account');
+
+            // Apply new balance changes
+            $this->accountBalanceService->updateBalanceForTransaction($updatedTransaction);
 
             DB::commit();
+
+            $this->logInfo('Transaction updated successfully with balance update', [
+                'transaction_id' => $updatedTransaction->id,
+                'account_id' => $updatedTransaction->account_id,
+                'old_amount' => $originalTransaction->amount,
+                'new_amount' => $updatedTransaction->amount,
+                'old_type' => $originalTransaction->type,
+                'new_type' => $updatedTransaction->type
+            ]);
 
             return $updatedTransaction;
         } catch (Exception $e) {
@@ -104,12 +139,25 @@ class TransactionService
 
     public function deleteTransaction(Transaction $transaction): bool
     {
+        DB::beginTransaction();
+        
         try {
-            DB::beginTransaction();
+            // Load the account relationship for balance update
+            $transaction->load('account');
+
+            // Revert the balance changes before deleting
+            $this->accountBalanceService->revertBalanceForDeletedTransaction($transaction);
 
             $result = $this->transactionRepository->delete($transaction);
 
             DB::commit();
+
+            $this->logInfo('Transaction deleted successfully with balance update', [
+                'transaction_id' => $transaction->id,
+                'account_id' => $transaction->account_id,
+                'amount' => $transaction->amount,
+                'type' => $transaction->type
+            ]);
 
             return $result;
         } catch (Exception $e) {
@@ -129,7 +177,20 @@ class TransactionService
         try {
             $transaction = $this->transactionRepository->restore($transactionId, $userId);
             
+            // Load the account relationship for balance update
+            $transaction->load('account');
+
+            // Update balance for restored transaction
+            $this->accountBalanceService->updateBalanceForRestoredTransaction($transaction);
+            
             DB::commit();
+
+            $this->logInfo('Transaction restored successfully with balance update', [
+                'transaction_id' => $transaction->id,
+                'account_id' => $transaction->account_id,
+                'amount' => $transaction->amount,
+                'type' => $transaction->type
+            ]);
             
             return $transaction;
         } catch (Exception $e) {
@@ -149,6 +210,31 @@ class TransactionService
         } catch (Exception $e) {
             $this->logError('Error getting transaction stats', [
                 'user_id' => $userId
+            ], $e);
+            throw $e;
+        }
+    }
+
+    public function getTransactionStatsByCurrency(int $userId): array
+    {
+        try {
+            return $this->transactionRepository->getStatsByCurrency($userId);
+        } catch (Exception $e) {
+            $this->logError('Error getting transaction stats by currency', [
+                'user_id' => $userId
+            ], $e);
+            throw $e;
+        }
+    }
+
+    public function getMonthlyTrends(int $userId, int $months = 12): array
+    {
+        try {
+            return $this->transactionRepository->getMonthlyTrends($userId, $months);
+        } catch (Exception $e) {
+            $this->logError('Error getting monthly trends', [
+                'user_id' => $userId,
+                'months' => $months
             ], $e);
             throw $e;
         }

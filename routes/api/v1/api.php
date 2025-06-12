@@ -52,6 +52,8 @@ Route::middleware('auth:sanctum')->group(function () {
         ->withTrashed();
         Route::get('stats', [TransactionController::class, 'stats'])
         ->name('transactions.stats');
+        Route::get('stats-by-currency', [TransactionController::class, 'statsByCurrency'])
+        ->name('transactions.stats-by-currency');
     });
 
     Route::apiResource('transactions', TransactionController::class);
