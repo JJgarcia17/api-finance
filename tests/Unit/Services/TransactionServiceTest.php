@@ -8,6 +8,7 @@ use App\Models\Transaction;
 use App\Models\Account;
 use App\Models\Category;
 use App\Services\Transaction\TransactionService;
+use App\Services\Account\AccountBalanceService;
 use App\Repositories\Transaction\TransactionRepository;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -22,6 +23,7 @@ class TransactionServiceTest extends TestCase
 
     private TransactionService $service;
     private $mockRepository;
+    private $mockAccountBalanceService;
     private User $user;
     private Account $account;
     private Category $incomeCategory;
@@ -31,16 +33,22 @@ class TransactionServiceTest extends TestCase
     {
         parent::setUp();
         $this->mockRepository = Mockery::mock(TransactionRepository::class);
-        $this->service = new TransactionService($this->mockRepository);
+        $this->mockAccountBalanceService = Mockery::mock(AccountBalanceService::class);
+        $this->service = new TransactionService($this->mockRepository, $this->mockAccountBalanceService);
         $this->user = User::factory()->create();
-        $this->account = Account::factory()->create(['user_id' => $this->user->id]);
+        $this->account = Account::factory()->create([
+            'user_id' => $this->user->id,
+            'name' => 'Test Account ' . uniqid()
+        ]);
         $this->incomeCategory = Category::factory()->create([
             'user_id' => $this->user->id,
-            'type' => 'income'
+            'type' => 'income',
+            'name' => 'Income Category ' . uniqid()
         ]);
         $this->expenseCategory = Category::factory()->create([
             'user_id' => $this->user->id,
-            'type' => 'expense'
+            'type' => 'expense',
+            'name' => 'Expense Category ' . uniqid()
         ]);
         
         // Mock authentication for all tests
@@ -49,6 +57,10 @@ class TransactionServiceTest extends TestCase
             ->andReturnSelf();
         Auth::shouldReceive('user')
             ->andReturn($this->user);
+        Auth::shouldReceive('id')
+            ->andReturn($this->user->id);
+        Auth::shouldReceive('check')
+            ->andReturn(true);
     }
 
     protected function tearDown(): void
@@ -152,7 +164,6 @@ class TransactionServiceTest extends TestCase
     {
         // Arrange
         $data = [
-            'user_id' => $this->user->id,
             'account_id' => $this->account->id,
             'category_id' => $this->incomeCategory->id,
             'type' => 'income',
@@ -161,56 +172,111 @@ class TransactionServiceTest extends TestCase
             'transaction_date' => '2024-01-15'
         ];
 
-        $transaction = Transaction::factory()->make($data);
+        $expectedData = array_merge($data, ['user_id' => $this->user->id]);
+        $transaction = Transaction::factory()->make($expectedData);
 
-        // Mock DB transactions to avoid PDOException
-        DB::shouldReceive('beginTransaction')->once();
-        DB::shouldReceive('commit')->once();
-        DB::shouldReceive('rollBack')->never();
+        // Mock the transaction's load method to simulate loading the account relationship
+        $mockTransaction = Mockery::mock(Transaction::class);
+        $mockTransaction->shouldReceive('load')
+            ->once()
+            ->with('account')
+            ->andReturnSelf();
+        
+        // Mock setAttribute calls for property assignments
+        $mockTransaction->shouldReceive('setAttribute')->andReturn(null);
+        $mockTransaction->shouldReceive('getAttribute')->andReturn(null);
+        
+        $mockTransaction->id = 1;
+        $mockTransaction->account_id = $this->account->id;
+        $mockTransaction->amount = 1000.00;
+        $mockTransaction->type = 'income';
+
+        // Mock DB transactions - allowing multiple calls
+        DB::shouldReceive('beginTransaction')->andReturn(true);
+        DB::shouldReceive('commit')->andReturn(true);
+        DB::shouldReceive('rollBack')->andReturn(true);
 
         $this->mockRepository
             ->shouldReceive('create')
             ->once()
-            ->with($data)
-            ->andReturn($transaction);
+            ->with($expectedData)
+            ->andReturn($mockTransaction);
+
+        $this->mockAccountBalanceService
+            ->shouldReceive('updateBalanceForTransaction')
+            ->once()
+            ->with($mockTransaction);
 
         // Act
         $result = $this->service->createTransaction($data);
 
         // Assert
-        $this->assertEquals($transaction, $result);
+        $this->assertEquals($mockTransaction, $result);
     }
 
     public function test_update_transaction()
     {
         // Arrange
-        $transaction = Transaction::factory()->make([
-            'id' => 1,
-            'user_id' => $this->user->id,
-            'account_id' => $this->account->id,
-            'category_id' => $this->incomeCategory->id
-        ]);
+        $transaction = Mockery::mock(Transaction::class);
+        $transaction->shouldReceive('setAttribute')->andReturn(null);
+        $transaction->shouldReceive('getAttribute')
+            ->with('id')->andReturn(1);
+        $transaction->shouldReceive('getAttribute')
+            ->with('user_id')->andReturn($this->user->id);
+        $transaction->shouldReceive('getAttribute')
+            ->with('account_id')->andReturn($this->account->id);
+        $transaction->shouldReceive('getAttribute')
+            ->with('category_id')->andReturn($this->incomeCategory->id);
+        $transaction->shouldReceive('getAttribute')
+            ->with('amount')->andReturn(1000.00);
+        $transaction->shouldReceive('getAttribute')
+            ->with('type')->andReturn('income');
 
         $updateData = [
             'amount' => 1500.00,
             'description' => 'Updated description'
         ];
 
-        $updatedTransaction = Transaction::factory()->make(array_merge(
-            $transaction->toArray(),
-            $updateData
-        ));
-
-        // Mock Auth facade
-        Auth::shouldReceive('guard')
-            ->with('sanctum')
+        // Create a replica mock for the original transaction
+        $originalTransaction = Mockery::mock(Transaction::class);
+        $originalTransaction->shouldReceive('load')
+            ->once()
+            ->with('account')
             ->andReturnSelf();
-        Auth::shouldReceive('user')
-            ->andReturn($this->user);
+        $originalTransaction->shouldReceive('getAttribute')
+            ->with('amount')->andReturn(1000.00);
+        $originalTransaction->shouldReceive('getAttribute')
+            ->with('type')->andReturn('income');
 
-        // Mock DB transactions
-        DB::shouldReceive('beginTransaction')->once();
-        DB::shouldReceive('commit')->once();
+        $transaction->shouldReceive('replicate')
+            ->once()
+            ->andReturn($originalTransaction);
+
+        // Create updated transaction mock
+        $updatedTransaction = Mockery::mock(Transaction::class);
+        $updatedTransaction->shouldReceive('setAttribute')->andReturn(null);
+        $updatedTransaction->shouldReceive('getAttribute')
+            ->with('id')->andReturn(1);
+        $updatedTransaction->shouldReceive('getAttribute')
+            ->with('account_id')->andReturn($this->account->id);
+        $updatedTransaction->shouldReceive('getAttribute')
+            ->with('amount')->andReturn(1500.00);
+        $updatedTransaction->shouldReceive('getAttribute')
+            ->with('type')->andReturn('income');
+        $updatedTransaction->shouldReceive('load')
+            ->once()
+            ->with('account')
+            ->andReturnSelf();
+
+        // Mock DB transactions - allowing multiple calls
+        DB::shouldReceive('beginTransaction')->andReturn(true);
+        DB::shouldReceive('commit')->andReturn(true);
+        DB::shouldReceive('rollBack')->andReturn(true);
+
+        $this->mockAccountBalanceService
+            ->shouldReceive('revertBalanceForTransaction')
+            ->once()
+            ->with($originalTransaction);
 
         $this->mockRepository
             ->shouldReceive('update')
@@ -218,7 +284,12 @@ class TransactionServiceTest extends TestCase
             ->with($transaction, $updateData)
             ->andReturn($updatedTransaction);
 
-        // Act - Pasar el objeto Transaction directamente, no el ID
+        $this->mockAccountBalanceService
+            ->shouldReceive('updateBalanceForTransaction')
+            ->once()
+            ->with($updatedTransaction);
+
+        // Act
         $result = $this->service->updateTransaction($transaction, $updateData);
 
         // Assert
@@ -228,23 +299,30 @@ class TransactionServiceTest extends TestCase
     public function test_delete_transaction()
     {
         // Arrange
-        $transaction = Transaction::factory()->make([
-            'id' => 1,
-            'user_id' => $this->user->id,
-            'account_id' => $this->account->id,
-            'category_id' => $this->incomeCategory->id
-        ]);
+        $transaction = Mockery::mock(Transaction::class);
+        $transaction->shouldReceive('setAttribute')->andReturn(null);
+        $transaction->shouldReceive('getAttribute')->andReturn(null);
+        $transaction->id = 1;
+        $transaction->user_id = $this->user->id;
+        $transaction->account_id = $this->account->id;
+        $transaction->category_id = $this->incomeCategory->id;
+        $transaction->amount = 1000.00;
+        $transaction->type = 'income';
 
-        // Mock Auth facade
-        Auth::shouldReceive('guard')
-            ->with('sanctum')
+        $transaction->shouldReceive('load')
+            ->once()
+            ->with('account')
             ->andReturnSelf();
-        Auth::shouldReceive('user')
-            ->andReturn($this->user);
 
-        // Mock DB transactions
-        DB::shouldReceive('beginTransaction')->once();
-        DB::shouldReceive('commit')->once();
+        // Mock DB transactions - allowing multiple calls
+        DB::shouldReceive('beginTransaction')->andReturn(true);
+        DB::shouldReceive('commit')->andReturn(true);
+        DB::shouldReceive('rollBack')->andReturn(true);
+
+        $this->mockAccountBalanceService
+            ->shouldReceive('revertBalanceForDeletedTransaction')
+            ->once()
+            ->with($transaction);
 
         $this->mockRepository
             ->shouldReceive('delete')
@@ -252,7 +330,7 @@ class TransactionServiceTest extends TestCase
             ->with($transaction)
             ->andReturn(true);
 
-        // Act - Pasar el objeto Transaction directamente, no el ID
+        // Act
         $result = $this->service->deleteTransaction($transaction);
 
         // Assert
@@ -262,18 +340,36 @@ class TransactionServiceTest extends TestCase
     public function test_restore_transaction()
     {
         // Arrange
-        $transaction = Transaction::factory()->make([
-            'id' => 1,
-            'user_id' => $this->user->id,
-            'account_id' => $this->account->id,
-            'category_id' => $this->incomeCategory->id
-        ]);
+        $transaction = Mockery::mock(Transaction::class);
+        $transaction->shouldReceive('setAttribute')->andReturn(null);
+        $transaction->shouldReceive('getAttribute')->andReturn(null);
+        $transaction->id = 1;
+        $transaction->user_id = $this->user->id;
+        $transaction->account_id = $this->account->id;
+        $transaction->category_id = $this->incomeCategory->id;
+        $transaction->amount = 1000.00;
+        $transaction->type = 'income';
+
+        $transaction->shouldReceive('load')
+            ->once()
+            ->with('account')
+            ->andReturnSelf();
+
+        // Mock DB transactions - allowing multiple calls
+        DB::shouldReceive('beginTransaction')->andReturn(true);
+        DB::shouldReceive('commit')->andReturn(true);
+        DB::shouldReceive('rollBack')->andReturn(true);
 
         $this->mockRepository
             ->shouldReceive('restore')
             ->once()
             ->with(1, $this->user->id)
             ->andReturn($transaction);
+
+        $this->mockAccountBalanceService
+            ->shouldReceive('updateBalanceForRestoredTransaction')
+            ->once()
+            ->with($transaction);
 
         // Act
         $result = $this->service->restoreTransaction(1, $this->user->id);
@@ -313,13 +409,6 @@ class TransactionServiceTest extends TestCase
         // Arrange
         $transactions = new \Illuminate\Database\Eloquent\Collection([]);
 
-        // Mock Auth facade
-        Auth::shouldReceive('guard')
-            ->with('sanctum')
-            ->andReturnSelf();
-        Auth::shouldReceive('user')
-            ->andReturn($this->user);
-
         $this->mockRepository
             ->shouldReceive('getForUser')
             ->once()
@@ -336,7 +425,7 @@ class TransactionServiceTest extends TestCase
             )
             ->andReturn($transactions);
 
-        // Act - Pasar parámetros individuales en lugar de un array
+        // Act
         $result = $this->service->getTransactionsForUser(
             $this->user->id,
             null, // type
