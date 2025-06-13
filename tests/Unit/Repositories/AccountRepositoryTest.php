@@ -25,12 +25,18 @@ class AccountRepositoryTest extends TestCase
 
     public function test_get_all_for_user_returns_user_accounts()
     {
-        // Create accounts for the user
-        $userAccounts = Account::factory()->count(3)->create(['user_id' => $this->user->id]);
+        // Create accounts for the user with unique names
+        $userAccounts = Account::factory()->count(3)->create([
+            'user_id' => $this->user->id,
+            'name' => fn() => 'User Account ' . uniqid()
+        ]);
         
         // Create accounts for another user
         $otherUser = User::factory()->create();
-        Account::factory()->count(2)->create(['user_id' => $otherUser->id]);
+        Account::factory()->count(2)->create([
+            'user_id' => $otherUser->id,
+            'name' => fn() => 'Other Account ' . uniqid()
+        ]);
 
         $result = $this->repository->getAllForUser($this->user->id);
 

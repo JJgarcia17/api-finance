@@ -47,8 +47,14 @@ class AccountServiceTest extends TestCase
     {
         // Crear una Collection de Eloquent en lugar de Support Collection
         $accounts = new Collection([
-            Account::factory()->make(['user_id' => $this->user->id]),
-            Account::factory()->make(['user_id' => $this->user->id])
+            Account::factory()->make([
+                'user_id' => $this->user->id,
+                'name' => 'Test Account 1'
+            ]),
+            Account::factory()->make([
+                'user_id' => $this->user->id,
+                'name' => 'Test Account 2'
+            ])
         ]);
 
         $this->mockRepository->shouldReceive('getAllForUser')
