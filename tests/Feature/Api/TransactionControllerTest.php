@@ -23,8 +23,14 @@ class TransactionControllerTest extends TestCase
     {
         parent::setUp();
         $this->user = User::factory()->create();
-        $this->account = Account::factory()->create(['user_id' => $this->user->id]);
-        $this->category = Category::factory()->create(['user_id' => $this->user->id]);
+        $this->account = Account::factory()->create([
+            'user_id' => $this->user->id,
+            'name' => 'Test Account ' . uniqid()
+        ]);
+        $this->category = Category::factory()->create([
+            'user_id' => $this->user->id,
+            'name' => 'Test Category ' . uniqid()
+        ]);
         Sanctum::actingAs($this->user);
     }
 
@@ -225,6 +231,11 @@ class TransactionControllerTest extends TestCase
 
         // Act
         $response = $this->postJson("/api/v1/transactions/{$transaction->id}/restore");
+
+        // Debug: Ver el contenido de la respuesta si falla
+        if ($response->status() !== 200) {
+            dd($response->getContent(), $response->status());
+        }
 
         // Assert
         $response->assertStatus(200)

@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BudgetController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\TransactionController;
+use App\Http\Controllers\Api\LlmController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -76,5 +77,12 @@ Route::middleware('auth:sanctum')->group(function () {
     
     Route::get('/user', function (Request $request) {
         return $request->user();
+    });
+    
+    // LLM API
+    Route::prefix('llm')->group(function () {
+        Route::get('status', [LlmController::class, 'getStatus']);
+        Route::post('generate-text', [LlmController::class, 'generateText']);
+        Route::post('generate-structured', [LlmController::class, 'generateStructuredOutput']);
     });
 });
