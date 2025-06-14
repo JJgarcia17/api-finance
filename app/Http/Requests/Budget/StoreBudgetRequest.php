@@ -28,7 +28,7 @@ class StoreBudgetRequest extends FormRequest
             'name' => 'required|string|max:255',
             'amount' => 'required|numeric|min:0.01|max:999999999.99',
             'period' => 'required|in:weekly,monthly,quarterly,yearly',
-            'start_date' => 'required|date|after_or_equal:today',
+            'start_date' => 'required|date',
             'end_date' => 'required|date|after:start_date',
             'is_active' => 'sometimes|boolean',
             'description' => 'nullable|string|max:1000',
@@ -41,7 +41,7 @@ class StoreBudgetRequest extends FormRequest
             'category_id.unique' => 'Ya existe un presupuesto activo para esta categoría en el período seleccionado.',
             'amount.min' => 'El monto debe ser mayor a 0.',
             'amount.max' => 'El monto no puede exceder 999,999,999.99.',
-            'start_date.after_or_equal' => 'La fecha de inicio debe ser hoy o posterior.',
+            'amount.numeric' => 'El monto debe ser un número válido.',
             'end_date.after' => 'La fecha de fin debe ser posterior a la fecha de inicio.',
         ];
     }

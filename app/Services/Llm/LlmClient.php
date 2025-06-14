@@ -4,6 +4,10 @@ namespace App\Services\Llm;
 
 use App\Contracts\Llm\LlmClientInterface;
 use App\Services\Llm\Adapters\LlmAdapterInterface;
+use App\Services\Llm\RateLimiter;
+use App\Services\Llm\CircuitBreaker;
+use App\Services\Llm\RetryHandler;
+use App\Services\Llm\LlmMetrics;
 use Exception;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -54,6 +58,34 @@ class LlmClient implements LlmClientInterface
      * @var string
      */
     protected string $systemPrompt;
+
+    /**
+     * Rate limiter para controlar requests
+     * 
+     * @var RateLimiter
+     */
+    protected RateLimiter $rateLimiter;
+
+    /**
+     * Circuit breaker para manejo de fallos
+     * 
+     * @var CircuitBreaker
+     */
+    protected CircuitBreaker $circuitBreaker;
+
+    /**
+     * Retry handler para reintentos
+     * 
+     * @var RetryHandler
+     */
+    protected RetryHandler $retryHandler;
+
+    /**
+     * Sistema de métricas
+     * 
+     * @var LlmMetrics
+     */
+    protected LlmMetrics $metrics;
     
     /**
      * Constructor del cliente LLM
@@ -76,10 +108,31 @@ class LlmClient implements LlmClientInterface
         $this->cacheEnabled = $config['cache_enabled'] ?? true;
         $this->cacheTtl = $config['cache_ttl'] ?? 60 * 60 * 24; // 24 horas por defecto
         $this->systemPrompt = $config['system_prompt'] ?? '';
+
+        // Inicializar componentes de resiliencia
+        $this->rateLimiter = new RateLimiter(
+            $config['rate_limit_max_requests'] ?? 100,
+            $config['rate_limit_window_minutes'] ?? 60
+        );
+        
+        $this->circuitBreaker = new CircuitBreaker(
+            $config['circuit_breaker_failure_threshold'] ?? 5,
+            $config['circuit_breaker_recovery_time_minutes'] ?? 10,
+            $config['circuit_breaker_timeout_seconds'] ?? 30
+        );
+        
+        $this->retryHandler = RetryHandler::create([
+            'max_retries' => $config['retry_max_attempts'] ?? 3,
+            'base_delay_ms' => $config['retry_base_delay_ms'] ?? 1000,
+            'backoff_multiplier' => $config['retry_backoff_multiplier'] ?? 2.0
+        ]);
+
+        // Inicializar sistema de métricas
+        $this->metrics = new LlmMetrics();
     }
     
     /**
-     * Genera texto utilizando el LLM
+     * Genera texto utilizando el LLM con resiliencia
      *
      * @param string $prompt El prompt del usuario
      * @param array $options Opciones adicionales para la generación
@@ -89,30 +142,105 @@ class LlmClient implements LlmClientInterface
      */
     public function generateText(string $prompt, array $options = []): string
     {
-        // Verificar si el resultado está en caché
-        $cacheKey = $this->generateCacheKey($prompt, $options);
-        
-        if ($this->cacheEnabled && Cache::has($cacheKey)) {
-            return Cache::get($cacheKey);
+        // Verificar rate limiting
+        $userId = $options['user_id'] ?? 'global';
+        if (!$this->rateLimiter->canMakeRequest($this->provider, $userId)) {
+            throw new Exception("Rate limit exceeded for provider {$this->provider}");
         }
-        
-        try {
-            // Generar respuesta mediante el adaptador
-            $result = $this->adapter->generateText($prompt, $this->systemPrompt, $options);
+
+        // Verificar circuit breaker
+        if ($this->circuitBreaker->isOpen($this->provider)) {
+            throw new Exception("Circuit breaker is open for provider {$this->provider}");
+        }
+
+        // Verificar caché si está habilitada
+        if ($this->cacheEnabled) {
+            $cacheKey = $this->generateCacheKey($prompt, $options);
+            $cachedResult = Cache::get($cacheKey);
             
-            // Guardar en caché si está habilitado
-            if ($this->cacheEnabled) {
+            if ($cachedResult) {
+                // Registrar cache hit en métricas
+                $this->metrics->recordRequest($this->provider, [
+                    'latency_ms' => 0,
+                    'prompt_length' => strlen($prompt),
+                    'response_length' => strlen($cachedResult),
+                    'user_id' => $userId,
+                    'cache_hit' => true
+                ]);
+
+                $this->logInfo('Cache hit for LLM request', [
+                    'provider' => $this->provider,
+                    'prompt_hash' => md5($prompt)
+                ]);
+                return $cachedResult;
+            }
+        }
+
+        try {
+            // Registrar request en rate limiter
+            $this->rateLimiter->recordRequest($this->provider, $userId);
+
+            // Medir tiempo de ejecución
+            $startTime = microtime(true);
+
+            // Ejecutar con retry handler
+            $result = $this->retryHandler->execute(function() use ($prompt, $options) {
+                return $this->adapter->generateText(
+                    $prompt,
+                    $this->systemPrompt,
+                    $options
+                );
+            }, "generateText:{$this->provider}");
+
+            $executionTime = (microtime(true) - $startTime) * 1000; // ms
+
+            // Registrar éxito en circuit breaker
+            $this->circuitBreaker->recordSuccess($this->provider);
+
+            // Registrar métricas
+            $this->metrics->recordRequest($this->provider, [
+                'latency_ms' => (int) $executionTime,
+                'prompt_length' => strlen($prompt),
+                'response_length' => strlen($result),
+                'user_id' => $userId,
+                'cache_hit' => false
+            ]);
+
+            // Guardar en caché si está habilitada
+            if ($this->cacheEnabled && $result) {
+                $cacheKey = $this->generateCacheKey($prompt, $options);
                 Cache::put($cacheKey, $result, $this->cacheTtl);
             }
-            
-            return $result;
-            
-        } catch (Exception $e) {
-            $this->logError('Error al generar texto con ' . $this->provider, [
+
+            $this->logInfo('LLM text generation successful', [
+                'provider' => $this->provider,
                 'model' => $this->model,
                 'prompt_length' => strlen($prompt),
+                'response_length' => strlen($result),
+                'execution_time_ms' => $executionTime,
+                'user_id' => $userId
+            ]);
+
+            return $result;
+
+        } catch (Exception $e) {
+            // Registrar fallo en circuit breaker
+            $this->circuitBreaker->recordFailure($this->provider);
+
+            // Registrar error en métricas
+            $this->metrics->recordError($this->provider, $this->categorizeError($e), [
+                'error_message' => $e->getMessage(),
+                'user_id' => $userId
+            ]);
+
+            $this->logError('LLM text generation failed', [
+                'provider' => $this->provider,
+                'model' => $this->model,
+                'prompt_length' => strlen($prompt),
+                'error' => $e->getMessage(),
+                'user_id' => $userId
             ], $e);
-            
+
             throw $e;
         }
     }
@@ -254,6 +382,51 @@ class LlmClient implements LlmClientInterface
         }
         
         Log::error($message, $context);
+    }
+    
+    /**
+     * Log de información con formato estándar del proyecto
+     * 
+     * @param string $message
+     * @param array $context
+     * @return void
+     */
+    protected function logInfo(string $message, array $context = []): void
+    {
+        Log::info($message, $context);
+    }
+
+    /**
+     * Categorizar tipo de error para métricas
+     * 
+     * @param Exception $e
+     * @return string
+     */
+    protected function categorizeError(Exception $e): string
+    {
+        $message = strtolower($e->getMessage());
+        
+        if (str_contains($message, 'timeout') || str_contains($message, 'time out')) {
+            return 'timeout';
+        }
+        
+        if (str_contains($message, 'rate limit') || str_contains($message, '429')) {
+            return 'rate_limit';
+        }
+        
+        if (str_contains($message, 'authentication') || str_contains($message, '401')) {
+            return 'authentication';
+        }
+        
+        if (str_contains($message, 'service unavailable') || str_contains($message, '503')) {
+            return 'service_unavailable';
+        }
+        
+        if (str_contains($message, 'connection') || str_contains($message, 'network')) {
+            return 'connection';
+        }
+        
+        return 'unknown';
     }
     
     /**

@@ -4,8 +4,10 @@ namespace App\Services\Llm;
 
 use App\Contracts\Llm\LlmClientInterface;
 use App\Services\Llm\Adapters\LlmAdapterInterface;
+use App\Services\Llm\Adapters\MockAdapter;
 use App\Services\Llm\Adapters\OllamaAdapter;
 use App\Services\Llm\Adapters\OpenAIAdapter;
+use App\Services\Llm\Adapters\OpenRouterAdapter;
 use Exception;
 use Illuminate\Support\Facades\Config;
 
@@ -49,12 +51,14 @@ class LlmClientFactory
      * @return LlmAdapterInterface
      * 
      * @throws Exception Si el proveedor no está soportado
-     */    protected static function createAdapter(string $provider): LlmAdapterInterface
+     */
+    protected static function createAdapter(string $provider): LlmAdapterInterface
     {
         return match ($provider) {
             'ollama' => new OllamaAdapter(),
             'openai' => new OpenAIAdapter(),
-            'mock' => app()->environment('testing') ? app()->make('Tests\Mocks\Llm\MockLlmAdapter') : throw new Exception("Proveedor mock solo disponible en entorno de pruebas"),
+            'openrouter' => new OpenRouterAdapter(),
+            'mock' => new MockAdapter(),
             default => throw new Exception("Adaptador para proveedor '{$provider}' no implementado")
         };
     }
