@@ -12,7 +12,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-
+        // Register Financial Chat Services
+        $this->app->singleton(\App\Services\FinancialChat\FinancialChatService::class);
+        $this->app->singleton(\App\Services\FinancialChat\FinancialContextService::class);
     }
 
     /**
