@@ -4,8 +4,10 @@ use App\Http\Controllers\Api\V1\AccountController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BudgetController;
 use App\Http\Controllers\Api\V1\CategoryController;
+use App\Http\Controllers\Api\V1\FinancialChatController;
 use App\Http\Controllers\Api\V1\TransactionController;
 use App\Http\Controllers\Api\LlmController;
+use App\Http\Controllers\Api\LlmMetricsController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -79,10 +81,24 @@ Route::middleware('auth:sanctum')->group(function () {
         return $request->user();
     });
     
+    // Financial Chat API
+    Route::prefix('chat')->group(function () {
+        Route::post('message', [FinancialChatController::class, 'sendMessage']);
+        Route::get('stats', [FinancialChatController::class, 'getConversationStats']);
+        Route::delete('clear', [FinancialChatController::class, 'clearConversation']);
+        Route::get('suggestions', [FinancialChatController::class, 'getSuggestions']);
+        Route::get('summary', [FinancialChatController::class, 'getFinancialSummary']);
+    });
+    
     // LLM API
     Route::prefix('llm')->group(function () {
         Route::get('status', [LlmController::class, 'getStatus']);
         Route::post('generate-text', [LlmController::class, 'generateText']);
         Route::post('generate-structured', [LlmController::class, 'generateStructuredOutput']);
+        
+        // Métricas y monitoreo
+        Route::get('metrics', [LlmMetricsController::class, 'getMetrics']);
+        Route::get('system-status', [LlmMetricsController::class, 'getSystemStatus']);
+        Route::post('reset-circuit-breaker', [LlmMetricsController::class, 'resetCircuitBreaker']);
     });
 });
