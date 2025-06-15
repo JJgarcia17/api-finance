@@ -76,6 +76,12 @@ class AccountController extends Controller
                 'message' => 'Cuenta creada exitosamente',
                 'status' => 201
             ], 201);
+        } catch (InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'status' => 422
+            ], 422);
         } catch (Exception $e) {
             $this->logError('Error al crear cuenta en AccountController@store', [
                 'user_id' => $this->userId(),
@@ -140,6 +146,12 @@ class AccountController extends Controller
                 'message' => 'Cuenta actualizada exitosamente',
                 'status' => 200
             ], 200);
+        } catch (InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'status' => 422
+            ], 422);
         } catch (Exception $e) {
             $this->logError('Error al actualizar cuenta en AccountController@update', [
                 'account_id' => $account->id,

@@ -84,7 +84,7 @@ class AccountService
 
             $this->validateAccountData($data);
 
-
+            // Check for duplicate names
             if ($this->accountRepository->nameExistsForUser($data['name'], $data['user_id'])) {
                 throw new InvalidArgumentException('Ya existe una cuenta con este nombre');
             }
@@ -94,6 +94,22 @@ class AccountService
             DB::commit();
 
             return $account;
+        } catch (InvalidArgumentException $e) {
+            DB::rollBack();
+            throw $e; // Re-throw validation errors as-is
+        } catch (\Illuminate\Database\QueryException $e) {
+            DB::rollBack();
+            
+            // Handle database constraint violations
+            if (str_contains($e->getMessage(), 'accounts_user_name_unique')) {
+                throw new InvalidArgumentException('Ya existe una cuenta con este nombre');
+            }
+            
+            $this->logError('Database error creating account', [
+                'data' => $data,
+                'error' => $e->getMessage()
+            ], $e);
+            throw new Exception('Error al crear la cuenta en la base de datos');
         } catch (Exception $e) {
             DB::rollBack();
             $this->logError('Error creating account', [
@@ -111,7 +127,6 @@ class AccountService
         try {
             DB::beginTransaction();
 
-   
             $this->validateAccountData($data, $account->id);
 
             if (isset($data['name']) && 
@@ -123,8 +138,24 @@ class AccountService
 
             DB::commit();
 
-
             return $updatedAccount;
+        } catch (InvalidArgumentException $e) {
+            DB::rollBack();
+            throw $e; // Re-throw validation errors as-is
+        } catch (\Illuminate\Database\QueryException $e) {
+            DB::rollBack();
+            
+            // Handle database constraint violations
+            if (str_contains($e->getMessage(), 'accounts_user_name_unique')) {
+                throw new InvalidArgumentException('Ya existe una cuenta con este nombre');
+            }
+            
+            $this->logError('Database error updating account', [
+                'account_id' => $account->id,
+                'data' => $data,
+                'error' => $e->getMessage()
+            ], $e);
+            throw new Exception('Error al actualizar la cuenta en la base de datos');
         } catch (Exception $e) {
             DB::rollBack();
             $this->logError('Error updating account', [
