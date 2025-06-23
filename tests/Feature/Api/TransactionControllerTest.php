@@ -131,7 +131,9 @@ class TransactionControllerTest extends TestCase
         $transaction = Transaction::factory()->create([
             'user_id' => $this->user->id,
             'account_id' => $this->account->id,
-            'category_id' => $this->category->id
+            'category_id' => $this->category->id,
+            'type' => 'income',
+            'amount' => 1000.00
         ]);
 
         // Act
@@ -167,6 +169,7 @@ class TransactionControllerTest extends TestCase
             'user_id' => $this->user->id,
             'account_id' => $this->account->id,
             'category_id' => $this->category->id,
+            'type' => 'income',
             'amount' => 1000.00
         ]);
 
@@ -203,7 +206,9 @@ class TransactionControllerTest extends TestCase
         $transaction = Transaction::factory()->create([
             'user_id' => $this->user->id,
             'account_id' => $this->account->id,
-            'category_id' => $this->category->id
+            'category_id' => $this->category->id,
+            'type' => 'expense',
+            'amount' => 500.00
         ]);
     
         // Act
@@ -225,17 +230,14 @@ class TransactionControllerTest extends TestCase
         $transaction = Transaction::factory()->create([
             'user_id' => $this->user->id,
             'account_id' => $this->account->id,
-            'category_id' => $this->category->id
+            'category_id' => $this->category->id,
+            'type' => 'income',
+            'amount' => 1000.00
         ]);
         $transaction->delete();
 
         // Act
         $response = $this->postJson("/api/v1/transactions/{$transaction->id}/restore");
-
-        // Debug: Ver el contenido de la respuesta si falla
-        if ($response->status() !== 200) {
-            dd($response->getContent(), $response->status());
-        }
 
         // Assert
         $response->assertStatus(200)
@@ -297,7 +299,9 @@ class TransactionControllerTest extends TestCase
         $otherTransaction = Transaction::factory()->create([
             'user_id' => $otherUser->id,
             'account_id' => $otherAccount->id,
-            'category_id' => $otherCategory->id
+            'category_id' => $otherCategory->id,
+            'type' => 'income',
+            'amount' => 1000.00
         ]);
 
         // Act

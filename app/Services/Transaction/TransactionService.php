@@ -67,19 +67,29 @@ class TransactionService
         
         try {
             $data['user_id'] = $this->userId();
+            
+            // Generate reference number for transfers if not provided
+            if (isset($data['type']) && $data['type'] === 'transfer' && empty($data['reference_number'])) {
+                $data['reference_number'] = 'TRF-' . time() . '-' . rand(1000, 9999);
+            }
+            
             $transaction = $this->transactionRepository->create($data);
 
-            // Load the account relationship for balance update
-            $transaction->load('account');
-
-            // Update account balance
-            $this->accountBalanceService->updateBalanceForTransaction($transaction);
+            // Load the account relationships for balance update
+            if ($transaction->type === 'transfer') {
+                $transaction->load(['account', 'destinationAccount']);
+                $this->accountBalanceService->processTransfer($transaction);
+            } else {
+                $transaction->load('account');
+                $this->accountBalanceService->updateBalanceForTransaction($transaction);
+            }
 
             DB::commit();
 
             $this->logInfo('Transaction created successfully with balance update', [
                 'transaction_id' => $transaction->id,
                 'account_id' => $transaction->account_id,
+                'destination_account_id' => $transaction->destination_account_id,
                 'amount' => $transaction->amount,
                 'type' => $transaction->type
             ]);
@@ -102,23 +112,34 @@ class TransactionService
         try {
             // Store original transaction data for balance reversion
             $originalTransaction = $transaction->replicate();
-            $originalTransaction->load('account');
-
-            // Revert the original balance changes
-            $this->accountBalanceService->revertBalanceForTransaction($originalTransaction);
+            
+            // Load relationships based on transaction type
+            if ($originalTransaction->type === 'transfer') {
+                $originalTransaction->load(['account', 'destinationAccount']);
+                $this->accountBalanceService->revertTransfer($originalTransaction);
+            } else {
+                $originalTransaction->load('account');
+                $this->accountBalanceService->revertBalanceForTransaction($originalTransaction);
+            }
 
             // Update the transaction
             $updatedTransaction = $this->transactionRepository->update($transaction, $data);
-            $updatedTransaction->load('account');
-
-            // Apply new balance changes
-            $this->accountBalanceService->updateBalanceForTransaction($updatedTransaction);
+            
+            // Load relationships and apply new balance changes
+            if ($updatedTransaction->type === 'transfer') {
+                $updatedTransaction->load(['account', 'destinationAccount']);
+                $this->accountBalanceService->processTransfer($updatedTransaction);
+            } else {
+                $updatedTransaction->load('account');
+                $this->accountBalanceService->updateBalanceForTransaction($updatedTransaction);
+            }
 
             DB::commit();
 
             $this->logInfo('Transaction updated successfully with balance update', [
                 'transaction_id' => $updatedTransaction->id,
                 'account_id' => $updatedTransaction->account_id,
+                'destination_account_id' => $updatedTransaction->destination_account_id,
                 'old_amount' => $originalTransaction->amount,
                 'new_amount' => $updatedTransaction->amount,
                 'old_type' => $originalTransaction->type,
@@ -142,11 +163,14 @@ class TransactionService
         DB::beginTransaction();
         
         try {
-            // Load the account relationship for balance update
-            $transaction->load('account');
-
-            // Revert the balance changes before deleting
-            $this->accountBalanceService->revertBalanceForDeletedTransaction($transaction);
+            // Load the account relationships for balance update
+            if ($transaction->type === 'transfer') {
+                $transaction->load(['account', 'destinationAccount']);
+                $this->accountBalanceService->revertTransfer($transaction);
+            } else {
+                $transaction->load('account');
+                $this->accountBalanceService->revertBalanceForDeletedTransaction($transaction);
+            }
 
             $result = $this->transactionRepository->delete($transaction);
 
@@ -155,6 +179,7 @@ class TransactionService
             $this->logInfo('Transaction deleted successfully with balance update', [
                 'transaction_id' => $transaction->id,
                 'account_id' => $transaction->account_id,
+                'destination_account_id' => $transaction->destination_account_id,
                 'amount' => $transaction->amount,
                 'type' => $transaction->type
             ]);
@@ -177,17 +202,21 @@ class TransactionService
         try {
             $transaction = $this->transactionRepository->restore($transactionId, $userId);
             
-            // Load the account relationship for balance update
-            $transaction->load('account');
-
-            // Update balance for restored transaction
-            $this->accountBalanceService->updateBalanceForRestoredTransaction($transaction);
+            // Load relationships and update balance for restored transaction
+            if ($transaction->type === 'transfer') {
+                $transaction->load(['account', 'destinationAccount']);
+                $this->accountBalanceService->processTransfer($transaction);
+            } else {
+                $transaction->load('account');
+                $this->accountBalanceService->updateBalanceForRestoredTransaction($transaction);
+            }
             
             DB::commit();
 
             $this->logInfo('Transaction restored successfully with balance update', [
                 'transaction_id' => $transaction->id,
                 'account_id' => $transaction->account_id,
+                'destination_account_id' => $transaction->destination_account_id,
                 'amount' => $transaction->amount,
                 'type' => $transaction->type
             ]);
