@@ -158,4 +158,122 @@ class AccountBalanceService
             $this->accountRepository->updateBalance($account, $calculatedBalance);
         }
     }
+
+    /**
+     * Process a transfer transaction between two accounts
+     */
+    public function processTransfer(Transaction $transaction): void
+    {
+        if ($transaction->type !== 'transfer') {
+            throw new Exception('Transaction is not a transfer');
+        }
+
+        if (!$transaction->destination_account_id) {
+            throw new Exception('Transfer transaction must have a destination account');
+        }
+
+        $fromAccount = $transaction->account;
+        $toAccount = Account::find($transaction->destination_account_id);
+
+        if (!$fromAccount || !$toAccount) {
+            throw new Exception('Source or destination account not found');
+        }
+
+        // Validate sufficient balance
+        if ($fromAccount->current_balance < $transaction->amount) {
+            throw new Exception('Insufficient balance in source account');
+        }
+
+        // Validate same currency
+        if ($fromAccount->currency !== $toAccount->currency) {
+            throw new Exception('Transfer between different currencies is not supported');
+        }
+
+        $this->logInfo('Processing transfer transaction', [
+            'transaction_id' => $transaction->id,
+            'from_account_id' => $fromAccount->id,
+            'to_account_id' => $toAccount->id,
+            'amount' => $transaction->amount,
+            'from_balance_before' => $fromAccount->current_balance,
+            'to_balance_before' => $toAccount->current_balance
+        ]);
+
+        DB::beginTransaction();
+        try {
+            // Deduct from source account
+            $newFromBalance = $fromAccount->current_balance - $transaction->amount;
+            $this->accountRepository->updateBalance($fromAccount, $newFromBalance);
+
+            // Add to destination account
+            $newToBalance = $toAccount->current_balance + $transaction->amount;
+            $this->accountRepository->updateBalance($toAccount, $newToBalance);
+
+            DB::commit();
+
+            $this->logInfo('Transfer completed successfully', [
+                'transaction_id' => $transaction->id,
+                'from_balance_after' => $newFromBalance,
+                'to_balance_after' => $newToBalance
+            ]);
+        } catch (Exception $e) {
+            DB::rollBack();
+            $this->logError('Transfer processing failed', [
+                'transaction_id' => $transaction->id,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Revert a transfer transaction
+     */
+    public function revertTransfer(Transaction $transaction): void
+    {
+        if ($transaction->type !== 'transfer') {
+            throw new Exception('Transaction is not a transfer');
+        }
+
+        if (!$transaction->destination_account_id) {
+            throw new Exception('Transfer transaction must have a destination account');
+        }
+
+        $fromAccount = $transaction->account;
+        $toAccount = Account::find($transaction->destination_account_id);
+
+        if (!$fromAccount || !$toAccount) {
+            throw new Exception('Source or destination account not found');
+        }
+
+        $this->logInfo('Reverting transfer transaction', [
+            'transaction_id' => $transaction->id,
+            'from_account_id' => $fromAccount->id,
+            'to_account_id' => $toAccount->id,
+            'amount' => $transaction->amount
+        ]);
+
+        DB::beginTransaction();
+        try {
+            // Add back to source account
+            $newFromBalance = $fromAccount->current_balance + $transaction->amount;
+            $this->accountRepository->updateBalance($fromAccount, $newFromBalance);
+
+            // Deduct from destination account
+            $newToBalance = $toAccount->current_balance - $transaction->amount;
+            $this->accountRepository->updateBalance($toAccount, $newToBalance);
+
+            DB::commit();
+
+            $this->logInfo('Transfer reverted successfully', [
+                'transaction_id' => $transaction->id
+            ]);
+        } catch (Exception $e) {
+            DB::rollBack();
+            $this->logError('Transfer revert failed', [
+                'transaction_id' => $transaction->id,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
 }
