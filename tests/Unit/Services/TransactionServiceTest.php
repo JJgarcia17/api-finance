@@ -247,6 +247,8 @@ class TransactionServiceTest extends TestCase
             ->with('amount')->andReturn(1000.00);
         $originalTransaction->shouldReceive('getAttribute')
             ->with('type')->andReturn('income');
+        $originalTransaction->shouldReceive('getAttribute')
+            ->with('destination_account_id')->andReturn(null);
 
         $transaction->shouldReceive('replicate')
             ->once()
@@ -259,6 +261,8 @@ class TransactionServiceTest extends TestCase
             ->with('id')->andReturn(1);
         $updatedTransaction->shouldReceive('getAttribute')
             ->with('account_id')->andReturn($this->account->id);
+        $updatedTransaction->shouldReceive('getAttribute')
+            ->with('destination_account_id')->andReturn(null);
         $updatedTransaction->shouldReceive('getAttribute')
             ->with('amount')->andReturn(1500.00);
         $updatedTransaction->shouldReceive('getAttribute')

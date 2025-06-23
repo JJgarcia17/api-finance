@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\BudgetController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\FinancialChatController;
 use App\Http\Controllers\Api\V1\TransactionController;
+use App\Http\Controllers\Api\V1\TransferController;
 use App\Http\Controllers\Api\LlmController;
 use App\Http\Controllers\Api\LlmMetricsController;
 use Illuminate\Http\Request;
@@ -60,7 +61,16 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::apiResource('transactions', TransactionController::class);
-    // Budgets    
+
+    // Transfers - specific routes first to avoid conflicts
+    Route::get('transfers/stats', [TransferController::class, 'stats'])
+        ->name('transfers.stats');
+    Route::get('transfers/accounts', [TransferController::class, 'accounts'])
+        ->name('transfers.accounts');
+    
+    Route::apiResource('transfers', TransferController::class)->except(['update']);
+
+    // Budgets
     Route::group(['prefix' => 'budgets'], function () {
         Route::post('{budget}/restore', [BudgetController::class,'restore'])
         ->name('budgets.restore')
