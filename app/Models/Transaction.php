@@ -14,6 +14,7 @@ class Transaction extends Model
     protected $fillable = [
         'user_id',
         'account_id',
+        'destination_account_id',
         'category_id',
         'type',
         'amount',
@@ -51,6 +52,11 @@ class Transaction extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
+    }
+
+    public function destinationAccount(): BelongsTo
+    {
+        return $this->belongsTo(Account::class, 'destination_account_id');
     }
 
     // Scopes
